@@ -422,7 +422,7 @@ function doPrint() {
 /* ============ Reset ============ */
 const DEFAULTS = {
   text: '天地玄黄宇宙洪荒',
-  repeat: 6,
+  repeat: 1,
   charMode: 'ghost',
   fontFamily: 'LXGW WenKai',
   gridType: 'tian',

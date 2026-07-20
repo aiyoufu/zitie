@@ -10,6 +10,7 @@
 /* ===== Tokens / Light ===== */
 :root,
 :root[data-theme="light"] {
+  color-scheme: light;
   --bg: #ecebe6;
   --bg-soft: #f1efea;
   --panel: #ffffff;
@@ -19,6 +20,7 @@
   --text: #1c1b17;
   --text-muted: #75716a;
   --text-faint: #aaa49a;
+  --placeholder: #9a958c;
   --ink: #1c1b17;
   --ink-soft: #2c2a25;
   --focus-ring: rgba(28,27,23,0.08);
@@ -27,27 +29,58 @@
   --paper-text: #1c1b17;
   --hf-text: #555550;
   --hf-line: #d8d4cc;
+  --btn-primary-bg: #1c1b17;
+  --btn-primary-text: #faf9f6;
+  --btn-primary-hover: #2c2a25;
+  --btn-secondary-bg: transparent;
+  --btn-secondary-text: #1c1b17;
+  --btn-secondary-border: #d0ccc2;
+  --btn-secondary-hover-bg: #f5f3ed;
+  /* 分段控件：浅灰轨道 + 白底选中 + 轻阴影（参考 iOS / 系统切换） */
+  --seg-track: #eceef2;
+  --seg-track-border: transparent;
+  --seg-active-bg: #ffffff;
+  --seg-active-text: #1c1b17;
+  --seg-inactive: #8b909a;
+  --seg-shadow: 0 1px 2px rgba(15, 18, 28, 0.06), 0 2px 6px rgba(15, 18, 28, 0.06);
 }
 
 /* ===== Dark ===== */
 :root[data-theme="dark"] {
-  --bg: #15140f;
-  --bg-soft: #1c1a16;
-  --panel: #1f1d19;
-  --panel-soft: #26231e;
-  --border: #34322d;
-  --border-soft: #2a2824;
-  --text: #ece9e2;
-  --text-muted: #a8a298;
-  --text-faint: #6e6960;
-  --ink: #f0ece2;
-  --ink-soft: #d8d2c5;
-  --focus-ring: rgba(240,236,226,0.10);
+  color-scheme: dark;
+  --bg: #0f0e0b;
+  --bg-soft: #1a1712;
+  --panel: #1a1712;
+  --panel-soft: #2c2820;
+  --border: #6a6356;
+  --border-soft: #4a4438;
+  /* 侧栏文字：全亮，不再用发灰弱字 */
+  --text: #ffffff;
+  --text-muted: #f2ebe0;
+  --text-faint: #ddd4c4;
+  --placeholder: #d0c6b4;
+  --ink: #ffffff;
+  --ink-soft: #f5f0e6;
+  --focus-ring: rgba(255,255,255,0.16);
   --shadow-paper: 0 1px 2px rgba(0,0,0,0.4), 0 16px 40px rgba(0,0,0,0.55);
   --paper-bg: #faf8f3;
   --paper-text: #1c1b17;
   --hf-text: #555550;
   --hf-line: #d8d4cc;
+  --btn-primary-bg: #f5f0e6;
+  --btn-primary-text: #14120e;
+  --btn-primary-hover: #ffffff;
+  --btn-secondary-bg: transparent;
+  --btn-secondary-text: #f2ebe0;
+  --btn-secondary-border: #7a7366;
+  --btn-secondary-hover-bg: #2c2820;
+  /* 分段控件深色：轨道亮于侧栏形成“区域”，选中白块落在区域内 */
+  --seg-track: #3f3a32;
+  --seg-track-border: rgba(255, 250, 240, 0.1);
+  --seg-active-bg: #ffffff;
+  --seg-active-text: #14120e;
+  --seg-inactive: #d4ccc0;
+  --seg-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
 /* ===== Reset ===== */
@@ -95,71 +128,106 @@ body {
   color: var(--text);
 }
 #controls .hint {
-  font-size: 11.5px;
-  color: var(--text-faint);
+  font-size: 12px;
+  color: var(--text-muted);
   letter-spacing: 0.15px;
   line-height: 1.5;
 }
 
-.theme-switch {
-  display: flex;
-  gap: 2px;
-  background: var(--bg-soft);
-  padding: 2px;
-  border-radius: 6px;
+/* 深色侧栏：强制高亮文字，避免标签/提示发灰 */
+:root[data-theme="dark"] #controls {
+  color: #ffffff;
 }
-.theme-switch button {
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 13px;
-  line-height: 1;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+:root[data-theme="dark"] #controls header h1,
+:root[data-theme="dark"] #controls .field > span,
+:root[data-theme="dark"] #controls .switch-field,
+:root[data-theme="dark"] #controls .section-title,
+:root[data-theme="dark"] #controls .panel h2,
+:root[data-theme="dark"] #controls .micro,
+:root[data-theme="dark"] #controls .hint {
+  color: #f5f0e6;
 }
-.theme-switch button:hover { color: var(--text); }
-.theme-switch button[data-theme-set="dark"] {
-  font-weight: 900;
-  font-size: 14px;
-  transform: scale(1.05);
+:root[data-theme="dark"] #controls .field > span,
+:root[data-theme="dark"] #controls .section-title {
+  color: #ffffff;
+  opacity: 0.95;
 }
-.theme-switch button.active {
-  background: var(--panel);
-  color: var(--text);
-  box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+:root[data-theme="dark"] #controls .hint,
+:root[data-theme="dark"] #controls .micro {
+  color: #ebe3d4;
+  opacity: 1;
 }
 
-/* ===== Tabs ===== */
+/* 主题切换 / Tab：同一小圆角轨道 + 内部选中块 */
+.theme-switch,
 .tabs {
   display: flex;
+  align-items: center;
   gap: 2px;
-  margin: 0 22px 14px;
-  padding: 3px;
-  background: var(--bg-soft);
+  background: var(--seg-track);
+  border: 1px solid var(--seg-track-border);
+  box-shadow: none;
+  padding: 4px;
   border-radius: 8px;
+}
+.tabs {
+  margin: 0 22px 14px;
   flex-shrink: 0;
 }
-.tab {
-  flex: 1;
-  padding: 7px 6px;
-  background: transparent;
-  border: none;
-  font-size: 12px;
-  color: var(--text-muted);
+
+.theme-switch > button,
+.tabs > .tab {
+  border: none !important;
+  background: transparent !important;
+  color: var(--seg-inactive) !important;
   cursor: pointer;
-  border-radius: 5px;
+  box-shadow: none !important;
   font-family: inherit;
-  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+  border-radius: 6px;
+  transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
-.tab:hover { color: var(--text); }
-.tab.active {
-  background: var(--panel);
-  color: var(--text);
-  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+
+.theme-switch > button {
+  width: 30px;
+  height: 28px;
+  padding: 0 !important;
+  line-height: 0;
+}
+.theme-switch > button svg {
+  display: block;
+  width: 15px;
+  height: 15px;
+}
+.theme-switch > button:hover:not(.active) {
+  color: var(--text) !important;
+  opacity: 0.9;
+}
+.theme-switch > button.active {
+  background: var(--seg-active-bg) !important;
+  color: var(--seg-active-text) !important;
+  box-shadow: var(--seg-shadow) !important;
+}
+
+.tabs > .tab {
+  flex: 1;
+  min-height: 30px;
+  padding: 7px 8px !important;
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0.15px;
+}
+.tabs > .tab:hover:not(.active) {
+  color: var(--text) !important;
+  opacity: 0.9;
+}
+.tabs > .tab.active {
+  background: var(--seg-active-bg) !important;
+  color: var(--seg-active-text) !important;
+  font-weight: 600;
+  box-shadow: var(--seg-shadow) !important;
 }
 
 /* ===== Tab body (scrollable) ===== */
@@ -196,8 +264,9 @@ body {
 .field > span {
   margin-bottom: 6px;
   color: var(--text-muted);
-  font-size: 11.5px;
+  font-size: 12px;
   letter-spacing: 0.2px;
+  font-weight: 500;
 }
 .field select option[value="A4"] {
   font-weight: 700;
@@ -211,13 +280,45 @@ body {
 .page-footer-options input[type="text"] {
   border: 1px solid var(--border);
   border-radius: 6px;
-  padding: 8px 10px;
-  font-size: 13px;
+  padding: 9px 11px;
+  font-size: 13.5px;
   font-family: inherit;
-  background: var(--panel-soft);
+  /* 与分段控件轨道同色，侧栏层次更统一 */
+  background: var(--seg-track);
   color: var(--text);
   width: 100%;
   transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+  color-scheme: inherit;
+}
+.field input::placeholder,
+.field textarea::placeholder,
+.page-header-options input::placeholder,
+.page-footer-options input::placeholder {
+  color: var(--placeholder);
+  opacity: 1;
+}
+:root[data-theme="dark"] .field input,
+:root[data-theme="dark"] .field select,
+:root[data-theme="dark"] .field textarea,
+:root[data-theme="dark"] .page-header-options input[type="text"],
+:root[data-theme="dark"] .page-footer-options input[type="text"] {
+  background: var(--seg-track);
+  border-color: #6a6356;
+  color: #ffffff;
+  -webkit-text-fill-color: #ffffff;
+}
+:root[data-theme="dark"] .field input::placeholder,
+:root[data-theme="dark"] .field textarea::placeholder,
+:root[data-theme="dark"] .page-header-options input::placeholder,
+:root[data-theme="dark"] .page-footer-options input::placeholder {
+  color: #d8cfbd;
+  -webkit-text-fill-color: #d8cfbd;
+  opacity: 1;
+}
+.field select option,
+.field select optgroup {
+  background: var(--panel);
+  color: var(--text);
 }
 .field input:hover,
 .field select:hover,
@@ -233,7 +334,7 @@ body {
 .page-footer-options input[type="text"]:focus {
   outline: none;
   border-color: var(--ink);
-  background: var(--panel);
+  background: var(--seg-active-bg);
   box-shadow: 0 0 0 3px var(--focus-ring);
 }
 .field input[type="color"] {
@@ -242,14 +343,17 @@ body {
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 3px;
-  background: var(--panel-soft);
+  background: var(--seg-track);
   cursor: pointer;
   transition: border-color 0.15s;
 }
 .field input[type="color"]:hover { border-color: var(--text-faint); }
 .field textarea {
-  resize: vertical;
-  min-height: 64px;
+  resize: none;
+  min-height: 88px;
+  max-height: 160px;
+  height: 112px;
+  overflow-y: auto;
   font-family: "LXGW WenKai", "KaiTi", serif;
   font-size: 15px;
   line-height: 1.55;
@@ -288,14 +392,19 @@ body {
   height: 15px;
   accent-color: var(--ink);
   cursor: pointer;
+  color-scheme: inherit;
+}
+:root[data-theme="dark"] .switch-field {
+  color: var(--text);
 }
 
 .micro {
   font-size: 10.5px;
-  color: var(--text-faint);
+  color: var(--text-muted);
   letter-spacing: 1px;
   margin: 10px 0 6px;
   text-transform: uppercase;
+  opacity: 0.9;
 }
 
 /* Header / page header / page footer options */
@@ -327,17 +436,18 @@ body {
   margin-top: 0;
 }
 
-/* ===== Actions ===== */
+/* ===== Actions（仅底部操作区，避免污染 Tab / 主题按钮） ===== */
 .actions {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 16px 22px 18px;
+  padding: 16px 22px 20px;
   flex-shrink: 0;
   border-top: 1px solid var(--border-soft);
+  margin-top: auto;
 }
 
-button {
+.actions button {
   padding: 10px 14px;
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -348,33 +458,39 @@ button {
   cursor: pointer;
   font-family: inherit;
   letter-spacing: 0.15px;
-  transition: background 0.15s, border-color 0.15s, transform 0.05s;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.05s;
 }
-button:hover {
+.actions button:hover {
   background: var(--panel-soft);
   border-color: var(--text-faint);
 }
-button:active {
+.actions button:active {
   transform: translateY(0.5px);
 }
-button.primary {
-  background: var(--ink);
-  color: var(--panel);
-  border-color: var(--ink);
+.actions button.primary {
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
+  border-color: var(--btn-primary-bg);
+  font-weight: 600;
+  font-size: 14px;
+  padding: 12px 14px;
+  letter-spacing: 0.4px;
 }
-button.primary:hover {
-  background: var(--ink-soft);
-  border-color: var(--ink-soft);
+.actions button.primary:hover {
+  background: var(--btn-primary-hover);
+  border-color: var(--btn-primary-hover);
+  color: var(--btn-primary-text);
 }
-
-#controls footer {
-  padding: 0 22px 18px;
-  flex-shrink: 0;
+.actions button.secondary {
+  background: var(--btn-secondary-bg);
+  color: var(--btn-secondary-text);
+  border-color: var(--btn-secondary-border);
+  font-weight: 500;
 }
-#controls footer .hint {
-  font-size: 11px;
-  line-height: 1.65;
-  color: var(--text-faint);
+.actions button.secondary:hover {
+  background: var(--btn-secondary-hover-bg);
+  border-color: var(--text-faint);
+  color: var(--text);
 }
 
 /* ===== Preview area ===== */
