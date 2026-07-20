@@ -645,6 +645,10 @@ body {
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  box-sizing: border-box;
+  /* 避免打印时边框被抗锯齿糊成粗细不一 */
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
 }
 .cell .char {
   position: relative;

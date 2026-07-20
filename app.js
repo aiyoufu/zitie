@@ -110,7 +110,8 @@ function gridSvg(type, lineStyle, lineWidth, lineColor) {
     default:
       inner = '';
   }
-  return `<svg class="grid-lines" viewBox="0 0 100 100" preserveAspectRatio="none" shape-rendering="crispEdges">${inner}</svg>`;
+  // geometricPrecision：避免 crispEdges 在打印预览里把部分线渲成 1px、部分 2px
+  return `<svg class="grid-lines" viewBox="0 0 100 100" preserveAspectRatio="none" shape-rendering="geometricPrecision">${inner}</svg>`;
 }
 
 /* ============ Read config ============ */
@@ -174,13 +175,26 @@ function getCellDims(cfg, contentW) {
 }
 
 /* ============ Cell ============ */
-function createCell(cfg, data, cellW, cellH) {
+/**
+ * 格子边框用「右+下」单线，首行补上、首列补左，避免相邻格子双边框叠成粗细不一。
+ */
+function createCell(cfg, data, cellW, cellH, pos = {}) {
+  const { isFirstCol = false, isFirstRow = false } = pos;
   const cell = document.createElement('div');
   cell.className = 'cell';
   if (cfg.gridType === 'pinyin') cell.classList.add('pinyin-cell');
   cell.style.width = cellW + 'mm';
   cell.style.height = cellH + 'mm';
-  cell.style.border = `${cfg.lineWidth * 0.8}pt solid ${cfg.borderColor}`;
+
+  // 用 mm 统一边框粗细，打印/屏幕更一致（lineWidth 为 pt 量级的设计值）
+  const bwMm = Math.max(0.12, (cfg.lineWidth * 0.8) * 0.3528);
+  const bc = cfg.borderColor;
+  const edge = `${bwMm}mm solid ${bc}`;
+  cell.style.border = '0';
+  cell.style.borderRight = edge;
+  cell.style.borderBottom = edge;
+  if (isFirstCol) cell.style.borderLeft = edge;
+  if (isFirstRow) cell.style.borderTop = edge;
 
   if (cfg.gridType !== 'blank') {
     cell.insertAdjacentHTML('beforeend', gridSvg(cfg.gridType, cfg.lineStyle, cfg.lineWidth, cfg.lineColor));
@@ -351,7 +365,10 @@ function render() {
       for (let c = 0; c < perRow; c++) {
         const idx = r * perRow + c;
         const cd = slice[idx] || emptyCell;
-        row.appendChild(createCell(cfg, cd, cellW, cellH));
+        row.appendChild(createCell(cfg, cd, cellW, cellH, {
+          isFirstCol: c === 0,
+          isFirstRow: r === 0
+        }));
       }
       page.querySelector('.page-content').appendChild(row);
     }
