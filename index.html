@@ -4,34 +4,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>字帖生成器</title>
-  <link rel="stylesheet" href="styles.css?v=10" />
+  <link rel="stylesheet" href="styles.css?v=43" />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
 </head>
 <body>
   <aside id="controls">
     <header>
-      <div class="brand">
-        <h1>字帖生成器</h1>
-        <div class="theme-switch" role="group" aria-label="主题">
-          <button type="button" data-theme-set="light" title="浅色" aria-label="浅色">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
-              <circle cx="12" cy="12" r="4"/>
-              <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
-            </svg>
-          </button>
-          <button type="button" data-theme-set="dark" title="深色" aria-label="深色">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M21 14.5A8.5 8.5 0 0 1 9.5 3 7 7 0 1 0 21 14.5z"/>
-            </svg>
-          </button>
-          <button type="button" data-theme-set="auto" title="跟随系统" aria-label="跟随系统" class="active">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <rect x="3" y="4" width="18" height="13" rx="2"/>
-              <path d="M8 21h8M12 17v4"/>
-            </svg>
-          </button>
-        </div>
-      </div>
+      <h1>字帖生成器</h1>
       <p class="hint">配置参数 · 实时预览 · 打印</p>
     </header>
 
@@ -47,21 +26,6 @@
           <span>要练习的字</span>
           <textarea id="text" rows="4" placeholder="一行一字，或连续输入；可用 (pīnyīn) 标注拼音"></textarea>
         </label>
-        <div class="grid-2">
-          <label class="field">
-            <span>每字重复</span>
-            <input id="repeat" type="number" min="1" max="20" value="1" />
-          </label>
-          <label class="field">
-            <span>字符模式</span>
-            <select id="charMode">
-              <option value="none" selected>空写</option>
-              <option value="outline">描红</option>
-              <option value="ghost">临摹</option>
-              <option value="mix">混合</option>
-            </select>
-          </label>
-        </div>
         <label class="field">
           <span>字体</span>
           <select id="fontFamily">
@@ -101,6 +65,38 @@
             </optgroup>
           </select>
         </label>
+        <label class="field">
+          <span class="label-with-help">
+            字帖模式
+            <span class="help-tip" tabindex="0" role="button" aria-label="字帖模式说明">
+              <span class="help-tip-icon" aria-hidden="true">?</span>
+              <span class="help-tip-pop" role="tooltip">
+                笔顺拆分：按正确笔顺一笔一笔拆开练（完整字 → 第1笔 → 前2笔… → 空格自己写）。此模式下范字和逐笔都用统一的标准笔顺字，不跟上面的「字体」走，这样更清晰、不会重影。描红、临摹、混合、空白等其它模式，仍使用上面选的字体。
+              </span>
+            </span>
+          </span>
+          <select id="charMode">
+            <option value="stroke" selected>笔顺拆分</option>
+            <option value="outline">描红</option>
+            <option value="ghost">临摹</option>
+            <option value="mix">混合</option>
+            <option value="none">空白</option>
+          </select>
+        </label>
+        <label class="field">
+          <span id="repeatLabel">练习格数</span>
+          <input id="repeat" type="number" min="1" max="20" value="1" />
+        </label>
+        <div class="field own-row-field">
+          <span>单字独立成行</span>
+          <label class="switch-field">
+            <input type="checkbox" id="ownRow" checked />
+            <span>开启</span>
+          </label>
+        </div>
+        <div id="strokeOptions" class="stroke-options" hidden>
+          <p class="stroke-status" id="strokeStatus" hidden></p>
+        </div>
       </section>
     </div>
 
@@ -126,69 +122,74 @@
             <option value="dotted">点线</option>
           </select>
         </label>
-        <div class="grid-2">
-          <label class="field">
-            <span>线宽 pt</span>
-            <input id="lineWidth" type="number" min="0.1" max="3" step="0.1" value="0.6" />
-          </label>
-          <label class="field">
-            <span>格子尺寸 mm</span>
-            <input id="cellSize" type="number" min="8" max="60" step="0.5" value="14" />
-          </label>
-        </div>
-        <div class="grid-2">
-          <label class="field">
-            <span>辅助线</span>
-            <input id="lineColor" type="color" value="#cccccc" />
-          </label>
-          <label class="field">
-            <span>边框</span>
-            <input id="borderColor" type="color" value="#888888" />
-          </label>
-        </div>
+        <label class="field">
+          <span>线宽 pt</span>
+          <input id="lineWidth" type="number" min="0.1" max="3" step="0.1" value="0.6" />
+        </label>
+        <label class="field">
+          <span>格子尺寸 mm</span>
+          <input id="cellSize" type="number" min="8" max="60" step="0.5" value="14" />
+        </label>
+        <label class="field">
+          <span>辅助线颜色</span>
+          <input id="lineColor" type="color" value="#e0e0e0" />
+        </label>
+        <label class="field">
+          <span>边框颜色</span>
+          <input id="borderColor" type="color" value="#999999" />
+        </label>
       </section>
     </div>
 
     <div class="tab-body" data-panel="page" role="tabpanel" hidden>
       <section class="panel">
-        <div class="grid-2">
-          <label class="field">
-            <span>纸张</span>
-            <select id="paper">
-              <option value="A4" selected>A4 (210×297)</option>
-              <option value="A5">A5 (148×210)</option>
-              <option value="B5">B5 (176×250)</option>
-              <option value="Letter">Letter (8.5×11in)</option>
-            </select>
-          </label>
-          <label class="field">
-            <span>方向</span>
-            <select id="orientation">
-              <option value="portrait" selected>纵向</option>
-              <option value="landscape">横向</option>
-            </select>
-          </label>
-        </div>
-        <div class="grid-4">
-          <label class="field">
-            <span>上</span>
-            <input id="marginTop" type="number" min="0" max="50" value="15" />
-          </label>
-          <label class="field">
-            <span>下</span>
-            <input id="marginBottom" type="number" min="0" max="50" value="15" />
-          </label>
-          <label class="field">
-            <span>左</span>
-            <input id="marginLeft" type="number" min="0" max="50" value="15" />
-          </label>
-          <label class="field">
-            <span>右</span>
-            <input id="marginRight" type="number" min="0" max="50" value="15" />
-          </label>
+        <label class="field">
+          <span>纸张类型</span>
+          <select id="paper">
+            <option value="A4" selected>A4（210×297 mm）</option>
+            <option value="A5">A5（148×210 mm）</option>
+            <option value="B5">B5（176×250 mm）</option>
+            <option value="Letter">Letter（8.5×11 in）</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>方向</span>
+          <select id="orientation">
+            <option value="portrait" selected>纵向</option>
+            <option value="landscape">横向</option>
+          </select>
+        </label>
+        <div class="field">
+          <span>页边距 mm</span>
+          <div class="grid-4">
+            <label class="field">
+              <span>上</span>
+              <input id="marginTop" type="number" min="0" max="50" value="15" />
+            </label>
+            <label class="field">
+              <span>下</span>
+              <input id="marginBottom" type="number" min="0" max="50" value="15" />
+            </label>
+            <label class="field">
+              <span>左</span>
+              <input id="marginLeft" type="number" min="0" max="50" value="15" />
+            </label>
+            <label class="field">
+              <span>右</span>
+              <input id="marginRight" type="number" min="0" max="50" value="15" />
+            </label>
+          </div>
         </div>
         <label class="field">
-          <span>每行字数（0=按尺寸自动）</span>
+          <span class="label-with-help">
+            每行字数
+            <span class="help-tip" tabindex="0" role="button" aria-label="每行字数说明">
+              <span class="help-tip-icon" aria-hidden="true">?</span>
+              <span class="help-tip-pop" role="tooltip">
+                控制一行里放几个字。填 0 表示按格子大小自动算；填具体数字（如 8）则固定每行 8 个字。
+              </span>
+            </span>
+          </span>
           <input id="perRow" type="number" min="0" max="20" value="0" />
         </label>
 
@@ -221,29 +222,62 @@
           <input type="checkbox" id="showPageHeader" />
           <span>显示页眉</span>
         </label>
-        <div class="page-header-options">
-          <p class="micro">页眉</p>
-          <div class="grid-3">
-            <input id="headerLeft" type="text" placeholder="左" />
-            <input id="headerCenter" type="text" placeholder="中" />
-            <input id="headerRight" type="text" placeholder="右" />
-          </div>
-        </div>
-
         <label class="switch-field">
           <input type="checkbox" id="showPageFooter" />
           <span>显示页脚</span>
         </label>
+        <div class="page-header-options">
+          <p class="micro">页眉</p>
+          <label class="field">
+            <span>页眉高度 mm</span>
+            <input id="pageHeaderHeight" type="number" min="6" max="30" step="0.5" value="10" />
+          </label>
+          <div class="grid-3">
+            <label class="field">
+              <span>左</span>
+              <input id="headerLeft" type="text" placeholder="左侧文字" />
+            </label>
+            <label class="field">
+              <span>中</span>
+              <input id="headerCenter" type="text" placeholder="中间文字" />
+            </label>
+            <label class="field">
+              <span>右</span>
+              <input id="headerRight" type="text" placeholder="右侧文字" />
+            </label>
+          </div>
+        </div>
         <div class="page-footer-options">
           <p class="micro">页脚</p>
+          <label class="field">
+            <span>页脚高度 mm</span>
+            <input id="pageFooterHeight" type="number" min="6" max="30" step="0.5" value="10" />
+          </label>
           <div class="grid-3">
-            <input id="footerLeft" type="text" placeholder="左" />
-            <input id="footerCenter" type="text" placeholder="中" />
-            <input id="footerRight" type="text" placeholder="右" />
+            <label class="field">
+              <span>左</span>
+              <input id="footerLeft" type="text" placeholder="左侧文字" />
+            </label>
+            <label class="field">
+              <span>中</span>
+              <input id="footerCenter" type="text" placeholder="中间文字" />
+            </label>
+            <label class="field">
+              <span>右</span>
+              <input id="footerRight" type="text" placeholder="右侧文字" />
+            </label>
           </div>
           <div class="grid-2">
             <label class="field">
-              <span>页码格式</span>
+              <span class="label-with-help">
+                页码格式
+                <span class="help-tip" tabindex="0" role="button" aria-label="页码格式说明">
+                  <span class="help-tip-icon" aria-hidden="true">?</span>
+                  <span class="help-tip-pop" role="tooltip">
+                    选择页码怎么显示，例如「1」「1 / N」「第 X 页」。开启页码后，会盖住「页码位置」那一侧原来的页脚文字。
+                  </span>
+                </span>
+              </span>
               <select id="pageNumberFmt">
                 <option value="none" selected>无</option>
                 <option value="num">1</option>
@@ -263,19 +297,34 @@
             </label>
           </div>
         </div>
-
-        <label class="field">
-          <span>页眉页脚高度 mm</span>
-          <input id="hfHeight" type="number" min="6" max="30" step="0.5" value="10" />
-        </label>
-        <p class="micro">提示：页码会覆盖所选位置的页脚文字</p>
       </section>
     </div>
 
     <section class="panel actions">
-      <button id="printBtn" class="primary">打印</button>
-      <button id="renderBtn" class="secondary">重新渲染</button>
-      <button id="resetBtn" class="secondary">重置</button>
+      <div class="action-btns">
+        <button id="printBtn" class="primary">打印</button>
+        <button id="renderBtn" class="secondary">重新渲染</button>
+        <button id="resetBtn" class="secondary">重置</button>
+      </div>
+      <div class="theme-switch" role="group" aria-label="主题">
+        <button type="button" data-theme-set="light" title="浅色" aria-label="浅色">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="4"/>
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+          </svg>
+        </button>
+        <button type="button" data-theme-set="dark" title="深色" aria-label="深色">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 14.5A8.5 8.5 0 0 1 9.5 3 7 7 0 1 0 21 14.5z"/>
+          </svg>
+        </button>
+        <button type="button" data-theme-set="auto" title="跟随系统" aria-label="跟随系统" class="active">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="4" width="18" height="13" rx="2"/>
+            <path d="M8 21h8M12 17v4"/>
+          </svg>
+        </button>
+      </div>
     </section>
   </aside>
 
@@ -285,6 +334,6 @@
     </div>
   </main>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=43"></script>
 </body>
 </html>
