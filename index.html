@@ -1,18 +1,142 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-theme="light" data-theme-pref="auto">
+<html lang="zh-CN" data-theme-pref="auto">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>字帖生成器</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
+  <title>字帖</title>
+  <script>
+    (function() {
+      try {
+        var saved = localStorage.getItem('zhitie-theme') || 'auto';
+        var dark = saved === 'dark' || (saved === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme-pref', saved);
+      } catch (e) {}
+    })();
+  </script>
   <link rel="stylesheet" href="styles.css?v=43" />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
 </head>
 <body>
+  <!-- 移动端顶部工具栏（极简 Header） -->
+  <header id="mobile-header">
+    <div class="mobile-brand">
+      <svg class="brand-logo-icon" width="28" height="28" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="字帖图标">
+        <rect x="2" y="2" width="28" height="28" rx="7.5" class="brand-icon-bg" />
+        <!-- 白底田字格纸张卡片与十字虚线 -->
+        <rect x="5.5" y="5.5" width="21" height="21" rx="2.5" class="brand-tian-bg" />
+        <rect x="5.5" y="5.5" width="21" height="21" rx="2.5" class="brand-tian-border" stroke-width="1.2" fill="none"/>
+        <line x1="5.5" y1="16" x2="26.5" y2="16" class="brand-grid-line" stroke-dasharray="2.5 2" stroke-width="1"/>
+        <line x1="16" y1="5.5" x2="16" y2="26.5" class="brand-grid-line" stroke-dasharray="2.5 2" stroke-width="1"/>
+        <!-- 经典红铅笔（整体向右上平移，笔尖位于 11.5, 20.5） -->
+        <path d="M 17.5 10.5 L 25.5 2.5 C 26.3 1.7 27.7 1.7 28.5 2.5 C 29.3 3.3 29.3 4.7 28.5 5.5 L 21.5 14.5 Z" fill="#ef4444" class="brand-pencil-body"/>
+        <path d="M 17.5 10.5 L 25.5 2.5 L 27 4 L 19.5 12.5 Z" fill="#f87171" class="brand-pencil-highlight"/>
+        <path d="M 13.5 16.5 L 17.5 10.5 C 18.5 12.5 20.5 13.5 21.5 14.5 L 15.5 18.5 Z" fill="#fed7aa" class="brand-pencil-wood"/>
+        <path d="M 11.5 20.5 L 13.5 16.5 L 15.5 18.5 Z" fill="#1f2937" class="brand-pencil-lead"/>
+        <circle cx="10.5" cy="21.5" r="1" fill="#374151" class="brand-ink-dot"/>
+      </svg>
+      <h1>字帖</h1>
+    </div>
+  </header>
+
+  <!-- 移动端底部悬浮 Dock 菜单栏 -->
+  <div id="mobile-floating-dock" class="mobile-floating-dock" aria-label="快捷操作菜单">
+    <div class="dock-container">
+      <div class="mobile-theme-dropdown" id="mobileThemeDropdown">
+        <button id="mobileThemeBtn" type="button" class="dock-item" title="切换主题" aria-label="切换主题" aria-haspopup="true" aria-expanded="false">
+          <span id="mobileThemeIcon" class="dock-icon-wrapper"></span>
+          <span class="dock-item-label">主题</span>
+        </button>
+        <div class="mobile-theme-menu" id="mobileThemeMenu" role="menu" hidden>
+          <button type="button" class="theme-menu-item" data-theme-set="light" role="menuitem">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/>
+              <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+            </svg>
+            <span>浅色</span>
+          </button>
+          <button type="button" class="theme-menu-item" data-theme-set="dark" role="menuitem">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 14.5A8.5 8.5 0 0 1 9.5 3 7 7 0 1 0 21 14.5z"/>
+            </svg>
+            <span>深色</span>
+          </button>
+          <button type="button" class="theme-menu-item" data-theme-set="auto" role="menuitem">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="4" width="18" height="13" rx="2"/>
+              <path d="M8 21h8M12 17v4"/>
+            </svg>
+            <span>跟随系统</span>
+          </button>
+        </div>
+      </div>
+
+      <button id="mobilePrintBtn" type="button" class="dock-item" title="打印字帖" aria-label="打印字帖">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 6 2 18 2 18 9"></polyline>
+          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+          <rect x="6" y="14" width="12" height="8"></rect>
+        </svg>
+        <span class="dock-item-label">打印</span>
+      </button>
+
+      <button id="toggleDrawerBtn" type="button" class="dock-item" title="配置参数" aria-label="配置参数">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+        <span class="dock-item-label">设置</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- 抽屉蒙层 -->
+  <div id="drawer-backdrop" class="drawer-backdrop" aria-hidden="true"></div>
+
   <aside id="controls">
+    <div class="drawer-handle" aria-hidden="true"></div>
+    <div class="drawer-top-bar">
+      <span class="drawer-title">参数配置</span>
+      <button id="closeDrawerBtn" type="button" class="drawer-close-btn" aria-label="关闭面板">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
     <header>
-      <h1>字帖生成器</h1>
+      <div class="brand-title-wrap">
+        <svg class="brand-logo-icon" width="26" height="26" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="字帖图标">
+          <rect x="2" y="2" width="28" height="28" rx="7.5" class="brand-icon-bg" />
+          <!-- 白底田字格纸张卡片与十字虚线 -->
+          <rect x="5.5" y="5.5" width="21" height="21" rx="2.5" class="brand-tian-bg" />
+          <rect x="5.5" y="5.5" width="21" height="21" rx="2.5" class="brand-tian-border" stroke-width="1.2" fill="none"/>
+          <line x1="5.5" y1="16" x2="26.5" y2="16" class="brand-grid-line" stroke-dasharray="2.5 2" stroke-width="1"/>
+          <line x1="16" y1="5.5" x2="16" y2="26.5" class="brand-grid-line" stroke-dasharray="2.5 2" stroke-width="1"/>
+          <!-- 经典红铅笔（整体向右上平移，笔尖位于 11.5, 20.5） -->
+          <path d="M 17.5 10.5 L 25.5 2.5 C 26.3 1.7 27.7 1.7 28.5 2.5 C 29.3 3.3 29.3 4.7 28.5 5.5 L 21.5 14.5 Z" fill="#ef4444" class="brand-pencil-body"/>
+          <path d="M 17.5 10.5 L 25.5 2.5 L 27 4 L 19.5 12.5 Z" fill="#f87171" class="brand-pencil-highlight"/>
+          <path d="M 13.5 16.5 L 17.5 10.5 C 18.5 12.5 20.5 13.5 21.5 14.5 L 15.5 18.5 Z" fill="#fed7aa" class="brand-pencil-wood"/>
+          <path d="M 11.5 20.5 L 13.5 16.5 L 15.5 18.5 Z" fill="#1f2937" class="brand-pencil-lead"/>
+          <circle cx="10.5" cy="21.5" r="1" fill="#374151" class="brand-ink-dot"/>
+        </svg>
+        <h1>字帖</h1>
+      </div>
       <p class="hint">配置参数 · 实时预览 · 打印</p>
     </header>
+
+    <div id="swipeGuideHint" class="swipe-guide-banner" hidden aria-hidden="true">
+      <div class="swipe-hand-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"/>
+          <path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v6"/>
+          <path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"/>
+          <path d="M18 8a2 2 0 0 1 2 2v4a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/>
+        </svg>
+      </div>
+      <span>左右滑动区域可快速切换 Tab 标签页</span>
+      <button type="button" class="swipe-guide-close" id="closeSwipeGuideBtn" aria-label="关闭提示">✕</button>
+    </div>
 
     <nav class="tabs" role="tablist">
       <button class="tab active" data-tab="content" role="tab">内容</button>
@@ -91,7 +215,7 @@
           <span>单字独立成行</span>
           <label class="switch-field">
             <input type="checkbox" id="ownRow" checked />
-            <span>开启</span>
+            <span id="ownRowLabel">开启</span>
           </label>
         </div>
         <div id="strokeOptions" class="stroke-options" hidden>
@@ -201,7 +325,7 @@
         <div class="header-options">
           <label class="field">
             <span>标题</span>
-            <input id="headerTitle" type="text" value="田字格字帖生成器" />
+            <input id="headerTitle" type="text" value="字帖" />
           </label>
           <label class="field">
             <span>副标题</span>
@@ -302,9 +426,42 @@
 
     <section class="panel actions">
       <div class="action-btns">
-        <button id="printBtn" class="primary">打印</button>
-        <button id="renderBtn" class="secondary">重新渲染</button>
-        <button id="resetBtn" class="secondary">重置</button>
+        <button id="printBtn" class="primary desktop-only-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+            <rect x="6" y="14" width="12" height="8"></rect>
+          </svg>
+          <span>打印</span>
+        </button>
+        <button id="renderBtn" class="secondary desktop-only-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+          </svg>
+          <span>重新渲染</span>
+        </button>
+        <button id="mobilePreviewBtn" type="button" class="primary mobile-only-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
+          <span>预览字帖</span>
+        </button>
+        <button id="resetBtn" class="secondary">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+            <path d="M3 3v5h5"></path>
+          </svg>
+          <span>重置</span>
+        </button>
+        <button id="mobileCloseBtn" type="button" class="secondary mobile-only-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+          <span>关闭</span>
+        </button>
       </div>
       <div class="theme-switch" role="group" aria-label="主题">
         <button type="button" data-theme-set="light" title="浅色" aria-label="浅色">

@@ -12,6 +12,12 @@ const THEME_KEY = 'zhitie-theme';
 const $ = (id) => document.getElementById(id);
 
 /* ============ Theme ============ */
+const THEME_ICONS = {
+  light: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>`,
+  dark: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 14.5A8.5 8.5 0 0 1 9.5 3 7 7 0 1 0 21 14.5z"/></svg>`,
+  auto: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>`
+};
+
 function applyTheme(pref) {
   const root = document.documentElement;
   const dark = pref === 'dark' ||
@@ -19,37 +25,252 @@ function applyTheme(pref) {
   root.setAttribute('data-theme', dark ? 'dark' : 'light');
   root.setAttribute('data-theme-pref', pref);
 }
+
+function updateThemeUI(saved) {
+  document.querySelectorAll('[data-theme-set]').forEach(b => {
+    b.classList.toggle('active', b.dataset.themeSet === saved);
+  });
+  const iconEl = $('mobileThemeIcon');
+  if (iconEl && THEME_ICONS[saved]) {
+    iconEl.innerHTML = THEME_ICONS[saved];
+  }
+}
+
+function closeMobileThemeDropdown() {
+  const dropdown = $('mobileThemeDropdown');
+  const menu = $('mobileThemeMenu');
+  const btn = $('mobileThemeBtn');
+  if (dropdown) dropdown.classList.remove('active');
+  if (menu) menu.hidden = true;
+  if (btn) btn.setAttribute('aria-expanded', 'false');
+}
+
 function initTheme() {
   const saved = localStorage.getItem(THEME_KEY) || 'auto';
   applyTheme(saved);
+  updateThemeUI(saved);
+
   document.querySelectorAll('[data-theme-set]').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.themeSet === saved);
     btn.addEventListener('click', () => {
       const m = btn.dataset.themeSet;
       localStorage.setItem(THEME_KEY, m);
       applyTheme(m);
-      document.querySelectorAll('[data-theme-set]').forEach(b =>
-        b.classList.toggle('active', b === btn));
+      updateThemeUI(m);
+      closeMobileThemeDropdown();
     });
   });
-  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-    if (localStorage.getItem(THEME_KEY) === 'auto') applyTheme('auto');
-  });
+
+  const mobileThemeBtn = $('mobileThemeBtn');
+  const mobileThemeDropdown = $('mobileThemeDropdown');
+  const mobileThemeMenu = $('mobileThemeMenu');
+
+  if (mobileThemeBtn && mobileThemeDropdown && mobileThemeMenu) {
+    mobileThemeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isOpen = !mobileThemeMenu.hidden;
+      if (isOpen) {
+        closeMobileThemeDropdown();
+      } else {
+        mobileThemeDropdown.classList.add('active');
+        mobileThemeMenu.hidden = false;
+        mobileThemeBtn.setAttribute('aria-expanded', 'true');
+      }
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!mobileThemeDropdown.contains(e.target)) {
+        closeMobileThemeDropdown();
+      }
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeMobileThemeDropdown();
+    });
+  }
+
+  const mq = window.matchMedia('(prefers-color-scheme: dark)');
+  const handleSystemThemeChange = () => {
+    const saved = localStorage.getItem(THEME_KEY) || 'auto';
+    if (saved === 'auto') applyTheme('auto');
+  };
+  if (mq.addEventListener) {
+    mq.addEventListener('change', handleSystemThemeChange);
+  } else if (mq.addListener) {
+    mq.addListener(handleSystemThemeChange);
+  }
 }
 
-/* ============ Tabs ============ */
+/* ============ Tabs & Mobile Swipe ============ */
+const TAB_NAMES = ['content', 'grid', 'page'];
+
+function switchTab(targetName, direction) {
+  const tabs = document.querySelectorAll('.tab');
+  const panels = document.querySelectorAll('.tab-body');
+
+  let currentTarget = null;
+  tabs.forEach(t => {
+    const isTarget = t.dataset.tab === targetName;
+    t.classList.toggle('active', isTarget);
+    if (isTarget) currentTarget = t;
+  });
+
+  panels.forEach(b => {
+    const isTarget = b.dataset.panel === targetName;
+    const wasHidden = b.hidden;
+    b.hidden = !isTarget;
+
+    if (isTarget && wasHidden) {
+      b.classList.remove('slide-from-right', 'slide-from-left');
+      void b.offsetWidth;
+      if (direction === 'next') {
+        b.classList.add('slide-from-right');
+      } else if (direction === 'prev') {
+        b.classList.add('slide-from-left');
+      }
+      const onAnimEnd = () => {
+        b.classList.remove('slide-from-right', 'slide-from-left');
+        b.removeEventListener('animationend', onAnimEnd);
+      };
+      b.addEventListener('animationend', onAnimEnd);
+    }
+  });
+
+  if (currentTarget && currentTarget.scrollIntoView) {
+    currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+  }
+}
+
 function initTabs() {
-  document.querySelectorAll('.tab').forEach(tab => {
+  const tabs = document.querySelectorAll('.tab');
+  tabs.forEach(tab => {
     tab.addEventListener('click', () => {
       const target = tab.dataset.tab;
-      document.querySelectorAll('.tab').forEach(t =>
-        t.classList.toggle('active', t === tab));
-      document.querySelectorAll('.tab-body').forEach(b => {
-        b.hidden = b.dataset.panel !== target;
-      });
+      const activeTab = document.querySelector('.tab.active');
+      const activeName = activeTab ? activeTab.dataset.tab : TAB_NAMES[0];
+      const currentIndex = TAB_NAMES.indexOf(activeName);
+      const targetIndex = TAB_NAMES.indexOf(target);
+      const direction = targetIndex > currentIndex ? 'next' : (targetIndex < currentIndex ? 'prev' : null);
+      switchTab(target, direction);
     });
   });
+
+  initSwipeTabs();
 }
+
+const SWIPE_GUIDE_KEY = 'zhitie_swipe_guide_shown_v2';
+let swipeGuideTimer = null;
+
+function dismissSwipeGuide() {
+  const guideEl = document.getElementById('swipeGuideHint');
+  if (guideEl) guideEl.hidden = true;
+  if (swipeGuideTimer) {
+    clearTimeout(swipeGuideTimer);
+    swipeGuideTimer = null;
+  }
+  try {
+    localStorage.setItem(SWIPE_GUIDE_KEY, 'true');
+  } catch (err) {}
+}
+
+function checkAndShowSwipeGuide() {
+  try {
+    if (localStorage.getItem(SWIPE_GUIDE_KEY)) return;
+  } catch (err) {}
+
+  const guideEl = document.getElementById('swipeGuideHint');
+  if (!guideEl) return;
+
+  guideEl.hidden = false;
+
+  const closeBtn = document.getElementById('closeSwipeGuideBtn');
+  if (closeBtn) {
+    closeBtn.onclick = (e) => {
+      e.stopPropagation();
+      dismissSwipeGuide();
+    };
+  }
+
+  if (swipeGuideTimer) clearTimeout(swipeGuideTimer);
+  swipeGuideTimer = setTimeout(() => {
+    dismissSwipeGuide();
+  }, 6000);
+}
+
+function initSwipeTabs() {
+  const controls = document.getElementById('controls');
+  if (!controls) return;
+
+  let startX = 0;
+  let startY = 0;
+  let startTime = 0;
+  let isSwiping = false;
+
+  controls.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) return;
+
+    const target = e.target;
+    if (target) {
+      const tagName = target.tagName.toUpperCase();
+      const inputType = target.type ? target.type.toLowerCase() : '';
+      if (
+        tagName === 'TEXTAREA' ||
+        (tagName === 'INPUT' && (inputType === 'range' || inputType === 'color' || inputType === 'number')) ||
+        target.closest('.custom-select-options')
+      ) {
+        return;
+      }
+    }
+
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    startTime = Date.now();
+    isSwiping = true;
+  }, { passive: true });
+
+  controls.addEventListener('touchmove', (e) => {
+    if (!isSwiping) return;
+  }, { passive: true });
+
+  controls.addEventListener('touchend', (e) => {
+    if (!isSwiping) return;
+    isSwiping = false;
+
+    if (!e.changedTouches || e.changedTouches.length === 0) return;
+
+    const endX = e.changedTouches[0].clientX;
+    const endY = e.changedTouches[0].clientY;
+    const deltaX = endX - startX;
+    const deltaY = endY - startY;
+    const deltaTime = Date.now() - startTime;
+
+    const absX = Math.abs(deltaX);
+    const absY = Math.abs(deltaY);
+    const isHorizontal = absX > absY * 1.3;
+    const isFarEnough = absX >= 40 || (absX >= 25 && (absX / deltaTime) > 0.25);
+
+    if (isHorizontal && isFarEnough && deltaTime < 600) {
+      dismissSwipeGuide();
+      const activeTab = document.querySelector('.tab.active');
+      const activeName = activeTab ? activeTab.dataset.tab : TAB_NAMES[0];
+      const currentIndex = TAB_NAMES.indexOf(activeName);
+
+      if (currentIndex !== -1) {
+        if (deltaX < 0) {
+          // Swipe Left -> Next Tab
+          if (currentIndex < TAB_NAMES.length - 1) {
+            switchTab(TAB_NAMES[currentIndex + 1], 'next');
+          }
+        } else {
+          // Swipe Right -> Prev Tab
+          if (currentIndex > 0) {
+            switchTab(TAB_NAMES[currentIndex - 1], 'prev');
+          }
+        }
+      }
+    }
+  }, { passive: true });
+}
+
 
 /* ============ Parse input ============ */
 function parseChars(text) {
@@ -825,6 +1046,66 @@ async function render() {
   fitPreview();
 }
 
+/* ============ Mobile Drawer ============ */
+function closeMobileDrawer() {
+  const controls = $('controls');
+  const backdrop = $('drawer-backdrop');
+  if (controls) controls.classList.remove('open');
+  if (backdrop) backdrop.classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+function openMobileDrawer() {
+  const controls = $('controls');
+  const backdrop = $('drawer-backdrop');
+  if (controls) controls.classList.add('open');
+  if (backdrop) backdrop.classList.add('active');
+  document.body.style.overflow = 'hidden';
+  checkAndShowSwipeGuide();
+}
+
+function initDrawer() {
+  const toggleBtn = $('toggleDrawerBtn');
+  const closeBtn = $('closeDrawerBtn');
+  const backdrop = $('drawer-backdrop');
+  const mobilePrintBtn = $('mobilePrintBtn');
+  const mobilePreviewBtn = $('mobilePreviewBtn');
+
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', () => {
+      const controls = $('controls');
+      if (controls && controls.classList.contains('open')) {
+        closeMobileDrawer();
+      } else {
+        openMobileDrawer();
+      }
+    });
+  }
+
+  const mobileCloseBtn = $('mobileCloseBtn');
+
+  if (closeBtn) closeBtn.addEventListener('click', closeMobileDrawer);
+  if (mobileCloseBtn) mobileCloseBtn.addEventListener('click', closeMobileDrawer);
+  if (backdrop) backdrop.addEventListener('click', closeMobileDrawer);
+  if (mobilePreviewBtn) {
+    mobilePreviewBtn.addEventListener('click', () => {
+      closeMobileDrawer();
+      fitPreview();
+    });
+  }
+
+  if (mobilePrintBtn) {
+    mobilePrintBtn.addEventListener('click', () => {
+      closeMobileDrawer();
+      doPrint();
+    });
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeMobileDrawer();
+  });
+}
+
 /* ============ Fit preview to viewport ============ */
 const MM_TO_PX = 96 / 25.4;
 const PREVIEW_GAP_PX = 28;
@@ -866,21 +1147,33 @@ function fitPreview() {
   const naturalW = sheetWPx;
   const naturalH = sheets.length * sheetHPx + (sheets.length - 1) * PREVIEW_GAP_PX;
 
+  // 确保存放页面的绝对定位容器具备正确的原始几何尺寸
+  pages.style.width = naturalW + 'px';
+  pages.style.height = naturalH + 'px';
+
   const previewRect = preview.getBoundingClientRect();
   // 打印对话框打开时 rect 可能为 0，禁止据此写入极小 scale
   if (previewRect.width < 40 || previewRect.height < 40) return;
+  const isMobile = window.innerWidth < 768;
 
-  const availW = Math.max(0, previewRect.width - PREVIEW_PADDING);
-  const availH = Math.max(0, previewRect.height - PREVIEW_PADDING);
-  if (availW < 20 || availH < 20) return;
-
-  const scaleX = availW / naturalW;
-  const scaleY = availH / naturalH;
-  const scale = Math.max(0.1, Math.min(scaleX, scaleY, 1));
+  let scale;
+  if (isMobile) {
+    // 移动端优先自适应屏宽 (留出左右舒适间距 32px)，纵向支持自由滚动
+    const availW = Math.max(0, previewRect.width - 32);
+    const scaleX = availW / naturalW;
+    scale = Math.max(0.1, Math.min(scaleX, 1));
+  } else {
+    // 桌面端同时计算宽高
+    const availW = Math.max(0, previewRect.width - PREVIEW_PADDING);
+    const availH = Math.max(0, previewRect.height - PREVIEW_PADDING);
+    const scaleX = availW / naturalW;
+    const scaleY = availH / naturalH;
+    scale = Math.max(0.1, Math.min(scaleX, scaleY, 1));
+  }
 
   pages.style.transform = `scale(${scale})`;
-  stage.style.width = (naturalW * scale) + 'px';
-  stage.style.height = (naturalH * scale) + 'px';
+  stage.style.width = Math.round(naturalW * scale) + 'px';
+  stage.style.height = Math.round(naturalH * scale) + 'px';
 }
 
 /* ============ Print CSS ============ */
@@ -952,7 +1245,7 @@ const DEFAULTS = {
   pageHeaderHeight: 10,
   pageFooterHeight: 10,
   sheetHeader: false,
-  headerTitle: '田字格字帖生成器',
+  headerTitle: '字帖',
   headerSubtitle: '',
   showMeta: true,
   headerHeight: 32
@@ -968,6 +1261,7 @@ function reset() {
   document.querySelector('.page-header-options').classList.toggle('active', $('showPageHeader').checked);
   document.querySelector('.page-footer-options').classList.toggle('active', $('showPageFooter').checked);
   document.querySelector('.header-options').classList.toggle('active', $('sheetHeader').checked);
+  if ($('ownRowLabel') && $('ownRow')) $('ownRowLabel').textContent = $('ownRow').checked ? '开启' : '关闭';
   updateStrokeModeUi();
   render();
 }
@@ -1232,6 +1526,7 @@ function init() {
   updateStrokeModeUi();
   initHelpTips();
   initCustomSelects();
+  initDrawer();
 
   const ids = ['text','repeat','charMode','ownRow','fontFamily','gridType','lineStyle','lineWidth',
     'lineColor','borderColor','paper','orientation','marginTop','marginBottom','marginLeft',
@@ -1260,6 +1555,17 @@ function init() {
     document.querySelector('.header-options').classList.toggle('active', $('sheetHeader').checked);
   });
 
+  const updateOwnRowText = () => {
+    const labelSpan = $('ownRowLabel');
+    if (labelSpan && $('ownRow')) {
+      labelSpan.textContent = $('ownRow').checked ? '开启' : '关闭';
+    }
+  };
+  if ($('ownRow')) {
+    $('ownRow').addEventListener('change', updateOwnRowText);
+    updateOwnRowText();
+  }
+
   $('renderBtn').addEventListener('click', () => { render(); });
   $('printBtn').addEventListener('click', doPrint);
   $('resetBtn').addEventListener('click', reset);
@@ -1267,6 +1573,7 @@ function init() {
   // 打印前后强制去掉/恢复预览缩放（比只靠 CSS 更稳）
   window.addEventListener('beforeprint', beginPrintLayout);
   window.addEventListener('afterprint', endPrintLayout);
+  window.addEventListener('orientationchange', fitPreview);
   if (window.ResizeObserver) {
     const ro = new ResizeObserver(() => fitPreview());
     ro.observe($('preview'));
@@ -1274,3 +1581,4 @@ function init() {
   render();
 }
 document.addEventListener('DOMContentLoaded', init);
+
