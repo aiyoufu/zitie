@@ -14,7 +14,7 @@
       } catch (e) {}
     })();
   </script>
-  <link rel="stylesheet" href="styles.css?v=45" />
+  <link rel="stylesheet" href="styles.css?v=57" />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
 </head>
 <body>
@@ -148,8 +148,55 @@
       <section class="panel">
         <label class="field">
           <span>要练习的字</span>
-          <textarea id="text" rows="4" placeholder="一行一字，或连续输入；可用 (pīnyīn) 标注拼音"></textarea>
+          <textarea id="text" rows="4" placeholder="一行一字，或连续输入；可用 (pīnyīn) 手动标注（优先于自动注音）"></textarea>
         </label>
+
+        <div class="section-title">拼音</div>
+        <div class="field own-row-field" id="showPinyinRow">
+          <span class="label-with-help">
+            显示拼音
+            <span class="help-tip" tabindex="0" role="button" aria-label="显示拼音说明">
+              <span class="help-tip-icon" aria-hidden="true">?</span>
+              <span class="help-tip-pop" role="tooltip">
+                开启后为汉字注音（带声调）。「拼音田字格」版式固定为上四线+下田字：开=印读音，关=上半空白供默写。手动「字(zì)」优先；多音字可在下方校对。四线三格是纯拼音纸，不使用此开关。
+              </span>
+            </span>
+          </span>
+          <label class="switch-field">
+            <input type="checkbox" id="showPinyin" checked />
+            <span id="showPinyinLabel">开启</span>
+          </label>
+        </div>
+        <p id="pinyinGridHint" class="pinyin-grid-hint" hidden>
+          当前为「四线三格」：空白拼音练习纸，不注音。练字+拼音请改用「拼音田字格」。
+        </p>
+        <div id="pinyinOptions" class="pinyin-options">
+          <label class="field">
+            <span>拼音样式</span>
+            <select id="pinyinStyle">
+              <option value="symbol" selected>带声调（hàn）</option>
+              <option value="none">无声调（han）</option>
+              <option value="blank">留空（默写拼音）</option>
+            </select>
+          </label>
+          <div id="pinyinReview" class="pinyin-review" hidden>
+            <div class="pinyin-review-head">
+              <span>拼音校对</span>
+              <span id="pinyinReviewMeta" class="pinyin-review-hint"></span>
+            </div>
+            <div class="pinyin-review-toolbar">
+              <div class="pinyin-review-tabs" role="tablist" aria-label="校对范围">
+                <button type="button" class="pinyin-filter-btn is-active" data-py-filter="poly" role="tab" aria-selected="true">多音字</button>
+                <button type="button" class="pinyin-filter-btn" data-py-filter="edited" role="tab" aria-selected="false">已改</button>
+                <button type="button" class="pinyin-filter-btn" data-py-filter="all" role="tab" aria-selected="false">全部</button>
+              </div>
+              <input type="search" id="pinyinReviewSearch" class="pinyin-review-search" placeholder="搜字或拼音" autocomplete="off" hidden />
+            </div>
+            <p id="pinyinReviewEmpty" class="pinyin-review-empty" hidden></p>
+            <div id="pinyinReviewList" class="pinyin-review-list"></div>
+          </div>
+        </div>
+
         <label class="field">
           <span>字体</span>
           <select id="fontFamily">
@@ -234,8 +281,8 @@
             <option value="jiu">九宫格</option>
             <option value="hui">回宫格</option>
             <option value="blank">空白方格</option>
-            <option value="pinyin">拼音田字格</option>
-            <option value="fourline">四线三格</option>
+            <option value="pinyin">拼音田字格（上四线+下田字）</option>
+            <option value="fourline">四线三格（纯拼音）</option>
           </select>
         </label>
         <label class="field">
@@ -316,6 +363,62 @@
           </span>
           <input id="perRow" type="number" min="0" max="20" value="0" />
         </label>
+
+        <div class="section-title">背景图</div>
+        <label class="field">
+          <span class="label-with-help">
+            背景样式
+            <span class="help-tip" tabindex="0" role="button" aria-label="背景图说明">
+              <span class="help-tip-icon" aria-hidden="true">?</span>
+              <span class="help-tip-pop" role="tooltip">
+                为字帖添加边缘装饰（类似练习册四周插画）。默认只在纸张边缘显示、书写区不透底；边缘清晰无模糊。打印时请开启「背景图形」。
+              </span>
+            </span>
+          </span>
+          <select id="bgType">
+            <option value="none" selected>无（纯色纸）</option>
+            <option value="landscape">春日山水（推荐）</option>
+            <option value="bamboo">竹影淡墨</option>
+            <option value="cloud">淡云草地</option>
+            <option value="custom">自定义上传</option>
+          </select>
+        </label>
+        <div id="bgOptions" class="bg-options" hidden>
+          <div id="bgCustomRow" class="bg-custom-row" hidden>
+            <label class="field">
+              <span>上传图片</span>
+              <input id="bgFile" type="file" accept="image/*" />
+            </label>
+            <p id="bgCustomStatus" class="bg-custom-status" hidden></p>
+            <button type="button" id="bgClearCustom" class="bg-clear-btn" hidden>清除已上传图片</button>
+          </div>
+          <label class="field">
+            <span>边缘透明度 <span id="bgOpacityLabel" class="field-inline-val">100%</span></span>
+            <input id="bgOpacity" type="range" min="40" max="100" step="1" value="100" />
+          </label>
+          <label class="field">
+            <span>填充方式</span>
+            <select id="bgFit">
+              <option value="cover" selected>铺满裁切</option>
+              <option value="contain">完整显示</option>
+            </select>
+          </label>
+          <div class="field own-row-field">
+            <span class="label-with-help">
+              仅边缘显示
+              <span class="help-tip" tabindex="0" role="button" aria-label="仅边缘显示说明">
+                <span class="help-tip-icon" aria-hidden="true">?</span>
+                <span class="help-tip-pop" role="tooltip">
+                  开启后装饰只出现在纸张四周，中间书写区为纯白（硬边裁切，无羽化模糊）。关闭则整页铺底（格子仍铺白底）。
+                </span>
+              </span>
+            </span>
+            <label class="switch-field">
+              <input type="checkbox" id="bgEdgeOnly" checked />
+              <span id="bgEdgeOnlyLabel">开启</span>
+            </label>
+          </div>
+        </div>
 
         <div class="section-title">表头</div>
         <label class="switch-field">
@@ -432,7 +535,7 @@
             <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
             <rect x="6" y="14" width="12" height="8"></rect>
           </svg>
-          <span>打印</span>
+          <span>打印字帖</span>
         </button>
         <button id="renderBtn" class="secondary desktop-only-btn">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -453,14 +556,14 @@
             <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
             <path d="M3 3v5h5"></path>
           </svg>
-          <span>重置</span>
+          <span>重置设置</span>
         </button>
         <button id="mobileCloseBtn" type="button" class="secondary mobile-only-btn">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <line x1="18" y1="6" x2="6" y2="18"></line>
             <line x1="6" y1="6" x2="18" y2="18"></line>
           </svg>
-          <span>关闭</span>
+          <span>关闭面板</span>
         </button>
       </div>
       <div class="theme-switch" role="group" aria-label="主题">
@@ -491,6 +594,7 @@
     </div>
   </main>
 
-  <script src="app.js?v=43"></script>
+  <script src="vendor/pinyin-pro/index.js"></script>
+  <script src="app.js?v=56"></script>
 </body>
 </html>

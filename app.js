@@ -282,15 +282,422 @@ function parseChars(text) {
       const end = text.indexOf(')', i);
       if (end !== -1 && result.length > 0) {
         result[result.length - 1].pinyin = text.slice(i + 1, end).trim();
+        result[result.length - 1].pinyinManual = true;
         i = end + 1;
         continue;
       }
     }
     if (ch === ')' || /\s/.test(ch)) { i++; continue; }
-    result.push({ char: ch, pinyin: '' });
+    result.push({ char: ch, pinyin: '', pinyinManual: false });
     i++;
   }
   return result;
+}
+
+/* ============ Pinyin (auto + overrides) ============ */
+const PINYIN_OVERRIDE_KEY = 'zhitie-pinyin-overrides';
+/** @type {Record<string, string>} 用户校对的拼音，优先于自动注音 */
+let pinyinOverrides = Object.create(null);
+
+function loadPinyinOverrides() {
+  try {
+    const raw = localStorage.getItem(PINYIN_OVERRIDE_KEY);
+    const obj = raw ? JSON.parse(raw) : {};
+    pinyinOverrides = Object.create(null);
+    if (obj && typeof obj === 'object') {
+      Object.keys(obj).forEach(k => {
+        if (typeof obj[k] === 'string' && obj[k].trim()) {
+          pinyinOverrides[k] = obj[k].trim();
+        }
+      });
+    }
+  } catch (_) {
+    pinyinOverrides = Object.create(null);
+  }
+}
+
+function savePinyinOverrides() {
+  try {
+    localStorage.setItem(PINYIN_OVERRIDE_KEY, JSON.stringify(pinyinOverrides));
+  } catch (_) { /* ignore */ }
+}
+
+function getPinyinApi() {
+  return (typeof window !== 'undefined' && window.pinyinPro) ? window.pinyinPro : null;
+}
+
+/** 自动注音（单字）；toneType: symbol | none */
+function autoPinyin(ch, toneType) {
+  if (!ch || !isCjkChar(ch)) return '';
+  const api = getPinyinApi();
+  if (!api || typeof api.pinyin !== 'function') return '';
+  try {
+    const r = api.pinyin(ch, {
+      toneType: toneType === 'none' ? 'none' : 'symbol',
+      type: 'string',
+      nonZh: 'removed'
+    });
+    return (r && r !== ch) ? String(r).trim() : '';
+  } catch (_) {
+    return '';
+  }
+}
+
+/** 某字全部读音（校对面板用） */
+function listPolyphones(ch, toneType) {
+  const api = getPinyinApi();
+  if (!api || typeof api.polyphonic !== 'function') {
+    const one = autoPinyin(ch, toneType);
+    return one ? [one] : [];
+  }
+  try {
+    const r = api.polyphonic(ch, {
+      toneType: toneType === 'none' ? 'none' : 'symbol',
+      type: 'array'
+    });
+    // polyphonic 返回 [ ['háng','xíng'] ] 或类似
+    const list = Array.isArray(r) && r.length
+      ? (Array.isArray(r[0]) ? r[0] : r)
+      : [];
+    const uniq = [];
+    list.forEach(p => {
+      const s = String(p || '').trim();
+      if (s && !uniq.includes(s)) uniq.push(s);
+    });
+    if (!uniq.length) {
+      const one = autoPinyin(ch, toneType);
+      if (one) uniq.push(one);
+    }
+    return uniq;
+  } catch (_) {
+    const one = autoPinyin(ch, toneType);
+    return one ? [one] : [];
+  }
+}
+
+/**
+ * 解析后的字列表补全拼音。
+ * 优先级：关显示 → 空；留空样式 → 空；手动 (py) → 校对覆盖 → 自动
+ */
+function annotateChars(chars, cfg) {
+  const show = !!cfg.showPinyin;
+  const style = cfg.pinyinStyle || 'symbol';
+  return chars.map(c => {
+    if (!show || style === 'blank') {
+      return { ...c, pinyin: '' };
+    }
+    if (c.pinyinManual && c.pinyin) {
+      return { ...c, pinyin: c.pinyin };
+    }
+    if (pinyinOverrides[c.char]) {
+      return { ...c, pinyin: pinyinOverrides[c.char] };
+    }
+    return { ...c, pinyin: autoPinyin(c.char, style) };
+  });
+}
+
+/**
+ * 四线三格 = 纯拼音纸，与「显示拼音/注音」无关，禁用注音相关控件。
+ * 其它格子类型：显示拼音开关正常可用。
+ */
+function updatePinyinOptionsUi() {
+  const showEl = $('showPinyin');
+  const opts = $('pinyinOptions');
+  const label = $('showPinyinLabel');
+  const hint = $('pinyinGridHint');
+  const row = showEl && showEl.closest('.own-row-field');
+  const gridType = $('gridType') && $('gridType').value;
+  const isFourline = gridType === 'fourline';
+
+  if (showEl) {
+    showEl.disabled = isFourline;
+  }
+  if (row) {
+    row.classList.toggle('is-disabled', isFourline);
+    row.title = isFourline
+      ? '四线三格用于练写拼音，不注音；空白四线即为练习纸'
+      : '';
+  }
+  if (hint) {
+    hint.hidden = !isFourline;
+  }
+
+  if (isFourline) {
+    if (opts) opts.hidden = true;
+    if (label) label.textContent = '不适用';
+    return;
+  }
+
+  const on = showEl && showEl.checked;
+  if (opts) opts.hidden = !on;
+  if (label) label.textContent = on ? '开启' : '关闭';
+}
+
+/** 拼音校对面板：默认只看多音字，避免上百字刷屏 */
+let pinyinReviewFilter = 'poly'; // poly | edited | all
+let pinyinReviewQuery = '';
+
+function initPinyinReviewUi() {
+  document.querySelectorAll('[data-py-filter]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      pinyinReviewFilter = btn.dataset.pyFilter || 'poly';
+      document.querySelectorAll('[data-py-filter]').forEach(b => {
+        const on = b === btn;
+        b.classList.toggle('is-active', on);
+        b.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      const search = $('pinyinReviewSearch');
+      if (search) {
+        search.hidden = pinyinReviewFilter !== 'all';
+        if (pinyinReviewFilter !== 'all') {
+          search.value = '';
+          pinyinReviewQuery = '';
+        }
+      }
+      // 强制按当前输入重绘列表
+      const list = $('pinyinReviewList');
+      if (list) delete list.dataset.sig;
+      debouncedRender();
+    });
+  });
+  const search = $('pinyinReviewSearch');
+  if (search) {
+    search.addEventListener('input', () => {
+      pinyinReviewQuery = (search.value || '').trim().toLowerCase();
+      const list = $('pinyinReviewList');
+      if (list) delete list.dataset.sig;
+      debouncedRender();
+    });
+  }
+}
+
+/**
+ * 构建单条校对行
+ * @param {{ char: string, pinyin?: string, pinyinManual?: boolean }} c
+ * @param {string} style
+ */
+function buildPinyinReviewRow(c, style) {
+  const ch = c.char;
+  const readings = listPolyphones(ch, style);
+  let current = '';
+  if (c.pinyinManual && c.pinyin) current = c.pinyin;
+  else if (pinyinOverrides[ch]) current = pinyinOverrides[ch];
+  else current = readings[0] || autoPinyin(ch, style);
+
+  const isPoly = readings.length > 1;
+  const isEdited = !!pinyinOverrides[ch];
+
+  const row = document.createElement('div');
+  row.className = 'pinyin-review-row' + (isPoly ? ' is-poly' : '');
+  row.dataset.char = ch;
+
+  const charEl = document.createElement('span');
+  charEl.className = 'pinyin-review-char';
+  charEl.textContent = ch;
+
+  const main = document.createElement('div');
+  main.className = 'pinyin-review-main';
+
+  // 多音字：优先芯片点选；单音/已改：紧凑输入
+  if (!c.pinyinManual && isPoly) {
+    const chips = document.createElement('div');
+    chips.className = 'pinyin-review-chips';
+    readings.forEach(r => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'pinyin-chip' + (r === current ? ' is-active' : '');
+      btn.textContent = r;
+      btn.addEventListener('click', () => {
+        pinyinOverrides[ch] = r;
+        savePinyinOverrides();
+        chips.querySelectorAll('.pinyin-chip').forEach(b => {
+          b.classList.toggle('is-active', b.textContent === r);
+        });
+        const inp = row.querySelector('.pinyin-review-input');
+        if (inp) inp.value = r;
+        debouncedRender();
+      });
+      chips.appendChild(btn);
+    });
+    main.appendChild(chips);
+  }
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'pinyin-review-input';
+  input.value = current;
+  input.setAttribute('aria-label', `「${ch}」的拼音`);
+  input.autocomplete = 'off';
+  input.spellcheck = false;
+  input.placeholder = isPoly ? '或手改' : '';
+  if (c.pinyinManual) {
+    input.title = '文本中已手动标注，修改请改练习字里的 (拼音)';
+    input.disabled = true;
+  } else {
+    input.addEventListener('change', () => {
+      const v = input.value.trim();
+      if (v) pinyinOverrides[ch] = v;
+      else delete pinyinOverrides[ch];
+      savePinyinOverrides();
+      debouncedRender();
+    });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        input.blur();
+      }
+    });
+  }
+  main.appendChild(input);
+
+  row.appendChild(charEl);
+  row.appendChild(main);
+
+  if (isEdited && !c.pinyinManual) {
+    row.classList.add('is-edited');
+    const clearBtn = document.createElement('button');
+    clearBtn.type = 'button';
+    clearBtn.className = 'pinyin-review-reset';
+    clearBtn.title = '恢复自动注音';
+    clearBtn.setAttribute('aria-label', `恢复「${ch}」自动注音`);
+    clearBtn.textContent = '↺';
+    clearBtn.addEventListener('click', () => {
+      delete pinyinOverrides[ch];
+      savePinyinOverrides();
+      debouncedRender();
+    });
+    row.appendChild(clearBtn);
+  }
+
+  return { row, readings, current, isPoly, isEdited };
+}
+
+/**
+ * 根据当前输入刷新「拼音校对」列表（去重保序）
+ * 默认只展示多音字；「全部」支持搜索，避免上百字刷屏。
+ */
+function refreshPinyinReview(chars, cfg) {
+  const wrap = $('pinyinReview');
+  const list = $('pinyinReviewList');
+  const meta = $('pinyinReviewMeta');
+  const empty = $('pinyinReviewEmpty');
+  const search = $('pinyinReviewSearch');
+  if (!wrap || !list) return;
+
+  // 正在编辑校对输入时不要重绘，避免抢走焦点
+  const active = document.activeElement;
+  if (active && list.contains(active) && active.classList.contains('pinyin-review-input')) {
+    return;
+  }
+  if (active && active.id === 'pinyinReviewSearch') {
+    // 允许搜索时继续刷新列表，但不清搜索框
+  }
+
+  if (!cfg.showPinyin || cfg.pinyinStyle === 'blank') {
+    wrap.hidden = true;
+    list.innerHTML = '';
+    if (empty) empty.hidden = true;
+    return;
+  }
+
+  const seen = new Set();
+  const unique = [];
+  for (const c of chars) {
+    if (!c.char || !isCjkChar(c.char) || seen.has(c.char)) continue;
+    seen.add(c.char);
+    unique.push(c);
+  }
+
+  if (!unique.length) {
+    wrap.hidden = true;
+    list.innerHTML = '';
+    if (empty) empty.hidden = true;
+    return;
+  }
+
+  wrap.hidden = false;
+  const style = cfg.pinyinStyle || 'symbol';
+
+  // 统计多音 / 已改
+  const items = unique.map(c => {
+    const readings = listPolyphones(c.char, style);
+    return {
+      c,
+      readings,
+      isPoly: readings.length > 1,
+      isEdited: !!pinyinOverrides[c.char],
+      isManual: !!c.pinyinManual
+    };
+  });
+  const polyCount = items.filter(i => i.isPoly).length;
+  const editedCount = items.filter(i => i.isEdited).length;
+
+  if (meta) {
+    meta.textContent = `${unique.length} 字` +
+      (polyCount ? ` · ${polyCount} 多音` : ' · 无多音') +
+      (editedCount ? ` · ${editedCount} 已改` : '');
+  }
+
+  if (search) {
+    search.hidden = pinyinReviewFilter !== 'all';
+  }
+
+  let filtered = items;
+  if (pinyinReviewFilter === 'poly') {
+    filtered = items.filter(i => i.isPoly);
+  } else if (pinyinReviewFilter === 'edited') {
+    filtered = items.filter(i => i.isEdited || i.isManual);
+  }
+  if (pinyinReviewFilter === 'all' && pinyinReviewQuery) {
+    const q = pinyinReviewQuery;
+    filtered = filtered.filter(i => {
+      const ch = i.c.char;
+      const py = (pinyinOverrides[ch] || i.readings[0] || autoPinyin(ch, style) || '').toLowerCase();
+      return ch.includes(q) || py.includes(q);
+    });
+  }
+
+  // 字集 + 筛选 + 搜索 签名，未变则只同步值
+  const signature = [
+    pinyinReviewFilter,
+    pinyinReviewQuery,
+    unique.map(c => c.char + (c.pinyinManual ? ':m' : '') + (pinyinOverrides[c.char] || '')).join('|')
+  ].join('::');
+
+  if (list.dataset.sig === signature) {
+    // 列表结构未变，跳过重绘
+    if (empty) {
+      empty.hidden = filtered.length > 0;
+    }
+    return;
+  }
+  list.dataset.sig = signature;
+  list.innerHTML = '';
+
+  if (!filtered.length) {
+    if (empty) {
+      empty.hidden = false;
+      if (pinyinReviewFilter === 'poly') {
+        empty.textContent = polyCount === 0
+          ? `共 ${unique.length} 字，均已自动注音，暂无多音字需校对`
+          : '没有匹配的多音字';
+      } else if (pinyinReviewFilter === 'edited') {
+        empty.textContent = '还没有手动改过的读音';
+      } else if (pinyinReviewQuery) {
+        empty.textContent = '没有匹配的字';
+      } else {
+        empty.textContent = '暂无内容';
+      }
+    }
+    return;
+  }
+  if (empty) empty.hidden = true;
+
+  // 「全部」过多时提示用搜索，仍渲染但限制在可滚动区域
+  filtered.forEach(item => {
+    const { row } = buildPinyinReviewRow(item.c, style);
+    list.appendChild(row);
+  });
 }
 
 /* ============ Stroke order data (hanzi-writer-data) ============ */
@@ -683,6 +1090,14 @@ function readConfig() {
     repeat: parseInt($('repeat').value, 10) || 1,
     charMode: $('charMode').value,
     fontFamily: $('fontFamily').value,
+    // 四线三格强制不注音（与开关状态解耦，避免组合语义混乱）
+    showPinyin: !!(
+      $('showPinyin') &&
+      $('showPinyin').checked &&
+      $('gridType') &&
+      $('gridType').value !== 'fourline'
+    ),
+    pinyinStyle: ($('pinyinStyle') && $('pinyinStyle').value) || 'symbol',
     gridType: $('gridType').value,
     lineStyle: $('lineStyle').value,
     lineWidth: parseFloat($('lineWidth').value) || 0.6,
@@ -717,7 +1132,11 @@ function readConfig() {
     headerTitle: $('headerTitle').value,
     headerSubtitle: $('headerSubtitle').value,
     showMeta: $('showMeta').checked,
-    headerHeight: parseFloat($('headerHeight').value) || 32
+    headerHeight: parseFloat($('headerHeight').value) || 32,
+    bgType: ($('bgType') && $('bgType').value) || 'none',
+    bgOpacity: parseInt($('bgOpacity') && $('bgOpacity').value, 10) || 100,
+    bgFit: ($('bgFit') && $('bgFit').value) || 'cover',
+    bgEdgeOnly: !!( !$('bgEdgeOnly') || $('bgEdgeOnly').checked )
   };
 }
 
@@ -730,7 +1149,12 @@ function getPaperDims(cfg) {
 
 /* ============ Cell sizing ============ */
 function getCellDims(cfg, contentW) {
-  const cellH = cfg.gridType === 'fourline' ? cfg.cellSize * 0.45 : cfg.cellSize;
+  // 拼音田字格：固定上四线 + 下田字双区，总高约 1.42 倍（与是否印拼音无关）
+  // 四线三格：较扁，专练拼音书写
+  let cellH;
+  if (cfg.gridType === 'fourline') cellH = cfg.cellSize * 0.45;
+  else if (cfg.gridType === 'pinyin') cellH = cfg.cellSize * 1.42;
+  else cellH = cfg.cellSize;
   let perRow;
   if (cfg.perRow > 0) {
     perRow = cfg.perRow;
@@ -750,7 +1174,10 @@ function createCell(cfg, data, cellW, cellH, pos = {}) {
   const { isFirstCol = false, isFirstRow = false } = pos;
   const cell = document.createElement('div');
   cell.className = 'cell';
-  if (cfg.gridType === 'pinyin') cell.classList.add('pinyin-cell');
+  // 拼音田字格：固定双区版式；「显示拼音」只决定上半是否印读音
+  const isPinyinGrid = cfg.gridType === 'pinyin';
+  const isFourline = cfg.gridType === 'fourline';
+  if (isPinyinGrid) cell.classList.add('pinyin-cell');
   if (isFirstCol) cell.classList.add('is-first-col');
   if (isFirstRow) cell.classList.add('is-first-row');
   cell.style.width = cellW + 'mm';
@@ -770,6 +1197,56 @@ function createCell(cfg, data, cellW, cellH, pos = {}) {
   if (isFirstCol) cell.style.borderLeft = `${bwMm}mm solid var(--cell-border-c)`;
   if (isFirstRow) cell.style.borderTop = `${bwMm}mm solid var(--cell-border-c)`;
 
+  const fontCss = cssFontFamily(cfg.fontFamily);
+  // 四线三格不注音；其它格由 showPinyin 控制是否印读音
+  const showPyText = !!(cfg.showPinyin && data.pinyin && !isFourline);
+
+  // —— 拼音田字格：上四线 + 下田字（版式固定；关显示拼音则上半空白供默写）——
+  if (isPinyinGrid) {
+    const pyZone = document.createElement('div');
+    pyZone.className = 'pinyin-zone';
+    pyZone.insertAdjacentHTML(
+      'beforeend',
+      gridSvg('fourline', cfg.lineStyle, cfg.lineWidth, gc, cellW, cellH * 0.34)
+    );
+    if (showPyText) {
+      const py = document.createElement('div');
+      py.className = 'pinyin';
+      py.textContent = data.pinyin;
+      py.style.fontFamily = fontCss;
+      // 相对拼音区高度定字号，落在四线格中格附近
+      py.style.fontSize = Math.min(cellW * 0.28, cellH * 0.14) + 'mm';
+      py.style.lineHeight = '1';
+      pyZone.appendChild(py);
+    }
+    cell.appendChild(pyZone);
+
+    const hzZone = document.createElement('div');
+    hzZone.className = 'hanzi-zone';
+    hzZone.insertAdjacentHTML(
+      'beforeend',
+      gridSvg('tian', cfg.lineStyle, cfg.lineWidth, gc, cellW, cellH * 0.66)
+    );
+    appendCharContent(hzZone, cfg, data, cellW, cellH * 0.66, fontCss, true);
+    cell.appendChild(hzZone);
+    return cell;
+  }
+
+  // —— 四线三格：纯拼音书写纸（空白四线；不叠注音）——
+  if (isFourline) {
+    cell.insertAdjacentHTML(
+      'beforeend',
+      gridSvg('fourline', cfg.lineStyle, cfg.lineWidth, gc, cellW, cellH)
+    );
+    // 四线格以练写拼音为主：不画汉字笔顺/字模，保持空白练习纸
+    // 若输入的是拼音字母本身，可用描红/临摹等模式时再显示（仅非 stroke 的文本）
+    if (data.char && cfg.charMode !== 'stroke' && cfg.charMode !== 'none') {
+      appendCharContent(cell, cfg, data, cellW, cellH, fontCss, false);
+    }
+    return cell;
+  }
+
+  // —— 其它格子：整格辅助线 + 可选顶部叠字拼音 ——
   if (cfg.gridType !== 'blank') {
     cell.insertAdjacentHTML(
       'beforeend',
@@ -777,23 +1254,32 @@ function createCell(cfg, data, cellW, cellH, pos = {}) {
     );
   }
 
-  const fontCss = cssFontFamily(cfg.fontFamily);
-
-  if (cfg.gridType === 'pinyin' && data.pinyin) {
+  if (showPyText) {
     const py = document.createElement('div');
-    py.className = 'pinyin';
+    py.className = 'pinyin pinyin-overlay';
     py.textContent = data.pinyin;
     py.style.fontFamily = fontCss;
-    py.style.fontSize = (cellH * 0.22) + 'mm';
+    py.style.fontSize = (cellH * 0.18) + 'mm';
     py.style.lineHeight = '1';
     cell.appendChild(py);
+    cell.classList.add('has-pinyin-overlay');
   }
 
+  appendCharContent(cell, cfg, data, cellW, cellH, fontCss, false);
+  return cell;
+}
+
+/**
+ * 向容器写入汉字内容（笔顺 SVG 或文字字模）
+ * @param {HTMLElement} host
+ * @param {boolean} inPinyinGrid 是否在拼音田字的下半区
+ */
+function appendCharContent(host, cfg, data, cellW, cellH, fontCss, inPinyinGrid) {
   // 笔顺格：单层笔顺路径（范字深 / 逐笔浅），无叠字、无 mask
   if (data.cellKind === 'stroke' && data.strokes && data.visibleCount > 0) {
     const svg = createStrokeSvgEl(data.strokes, data.visibleCount, !!data.strokeSolid);
-    if (svg) cell.appendChild(svg);
-    return cell;
+    if (svg) host.appendChild(svg);
+    return;
   }
 
   let mode = data.forceMode != null ? data.forceMode : cfg.charMode;
@@ -808,19 +1294,18 @@ function createCell(cfg, data, cellW, cellH, pos = {}) {
     const ch = document.createElement('div');
     ch.className = 'char';
     ch.textContent = data.char;
-    // 直接写 style 属性，避免被其它规则覆盖
     ch.style.setProperty('font-family', fontCss);
     let fontSize;
     if (cfg.gridType === 'fourline') fontSize = cellH * 0.7;
-    else if (cfg.gridType === 'pinyin') fontSize = cellH * 0.6;
+    else if (inPinyinGrid) fontSize = cellH * 0.72;
+    else if (cfg.showPinyin && data.pinyin) fontSize = cellH * 0.58;
     else fontSize = cellH * 0.72;
     ch.style.fontSize = fontSize + 'mm';
     if (mode === 'solid') ch.style.color = 'rgba(20,18,15,0.96)';
     else if (mode === 'outline') ch.style.color = 'rgba(0,0,0,0.18)';
     else if (mode === 'ghost') ch.style.color = 'rgba(0,0,0,0.5)';
-    cell.appendChild(ch);
+    host.appendChild(ch);
   }
-  return cell;
 }
 
 /* ============ Helpers for teach mode ============ */
@@ -841,6 +1326,237 @@ function formatPageNumber(fmt, num, total) {
   }
 }
 
+/* ============ Sheet background ============ */
+const BG_CUSTOM_KEY = 'zhitie-bg-custom-v1';
+const BG_PRESETS = {
+  landscape: 'assets/backgrounds/landscape-spring.svg',
+  bamboo: 'assets/backgrounds/ink-bamboo.svg',
+  cloud: 'assets/backgrounds/cloud-simple.svg'
+};
+/** @type {string} data URL of uploaded image */
+let customBgDataUrl = '';
+
+function loadCustomBg() {
+  try {
+    customBgDataUrl = localStorage.getItem(BG_CUSTOM_KEY) || '';
+  } catch (_) {
+    customBgDataUrl = '';
+  }
+}
+
+function saveCustomBg(dataUrl) {
+  customBgDataUrl = dataUrl || '';
+  try {
+    if (customBgDataUrl) localStorage.setItem(BG_CUSTOM_KEY, customBgDataUrl);
+    else localStorage.removeItem(BG_CUSTOM_KEY);
+  } catch (e) {
+    console.warn('[背景] 本地存储失败（图片可能过大）', e);
+    return false;
+  }
+  return true;
+}
+
+function resolveBgUrl(cfg) {
+  if (!cfg || !cfg.bgType || cfg.bgType === 'none') return '';
+  if (cfg.bgType === 'custom') return customBgDataUrl || '';
+  return BG_PRESETS[cfg.bgType] || '';
+}
+
+function updateBgOptionsUi() {
+  const type = ($('bgType') && $('bgType').value) || 'none';
+  const opts = $('bgOptions');
+  const customRow = $('bgCustomRow');
+  const clearBtn = $('bgClearCustom');
+  const status = $('bgCustomStatus');
+  const edgeLabel = $('bgEdgeOnlyLabel');
+  const opLabel = $('bgOpacityLabel');
+  const op = $('bgOpacity');
+
+  if (opts) opts.hidden = type === 'none';
+  if (customRow) customRow.hidden = type !== 'custom';
+
+  if (status) {
+    if (type === 'custom' && customBgDataUrl) {
+      status.hidden = false;
+      status.textContent = '已加载自定义图片（保存在本机）';
+      status.classList.remove('is-error');
+    } else if (type === 'custom' && !customBgDataUrl) {
+      status.hidden = false;
+      status.textContent = '请选择一张图片（建议浅色装饰、横竖接近 A4）';
+      status.classList.remove('is-error');
+    } else {
+      status.hidden = true;
+    }
+  }
+  if (clearBtn) clearBtn.hidden = !(type === 'custom' && customBgDataUrl);
+  if (edgeLabel && $('bgEdgeOnly')) {
+    edgeLabel.textContent = $('bgEdgeOnly').checked ? '开启' : '关闭';
+  }
+  if (opLabel && op) {
+    opLabel.textContent = (parseInt(op.value, 10) || 100) + '%';
+  }
+}
+
+function initBgControls() {
+  loadCustomBg();
+  updateBgOptionsUi();
+
+  if ($('bgType')) {
+    $('bgType').addEventListener('change', () => {
+      updateBgOptionsUi();
+      debouncedRender();
+    });
+  }
+  if ($('bgOpacity')) {
+    $('bgOpacity').addEventListener('input', () => {
+      updateBgOptionsUi();
+      debouncedRender();
+    });
+  }
+  if ($('bgFit')) {
+    $('bgFit').addEventListener('change', debouncedRender);
+  }
+  if ($('bgEdgeOnly')) {
+    $('bgEdgeOnly').addEventListener('change', () => {
+      updateBgOptionsUi();
+      debouncedRender();
+    });
+  }
+  if ($('bgClearCustom')) {
+    $('bgClearCustom').addEventListener('click', () => {
+      saveCustomBg('');
+      if ($('bgFile')) $('bgFile').value = '';
+      updateBgOptionsUi();
+      debouncedRender();
+    });
+  }
+  if ($('bgFile')) {
+    $('bgFile').addEventListener('change', () => {
+      const file = $('bgFile').files && $('bgFile').files[0];
+      const status = $('bgCustomStatus');
+      if (!file) return;
+      if (!file.type || !file.type.startsWith('image/')) {
+        if (status) {
+          status.hidden = false;
+          status.textContent = '请选择图片文件';
+          status.classList.add('is-error');
+        }
+        return;
+      }
+      // 限制约 2.5MB 原文件，避免 localStorage 爆掉
+      if (file.size > 2.5 * 1024 * 1024) {
+        if (status) {
+          status.hidden = false;
+          status.textContent = '图片过大（请小于 2.5MB），可先压缩再上传';
+          status.classList.add('is-error');
+        }
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = String(reader.result || '');
+        // 再压缩到合理 dataURL 体积（约 1.2MB 字符）
+        compressImageDataUrl(dataUrl, 1600, 0.82).then(out => {
+          const ok = saveCustomBg(out);
+          if (status) {
+            status.hidden = false;
+            if (ok) {
+              status.textContent = '已加载自定义图片（保存在本机）';
+              status.classList.remove('is-error');
+            } else {
+              status.textContent = '保存失败：浏览器存储空间不足，请换更小的图';
+              status.classList.add('is-error');
+            }
+          }
+          updateBgOptionsUi();
+          debouncedRender();
+        }).catch(() => {
+          const ok = saveCustomBg(dataUrl);
+          if (status) {
+            status.hidden = false;
+            status.textContent = ok ? '已加载自定义图片' : '保存失败，请换更小的图';
+            status.classList.toggle('is-error', !ok);
+          }
+          updateBgOptionsUi();
+          debouncedRender();
+        });
+      };
+      reader.onerror = () => {
+        if (status) {
+          status.hidden = false;
+          status.textContent = '读取图片失败';
+          status.classList.add('is-error');
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+}
+
+/**
+ * 将 dataURL 缩放到 maxEdge，输出 jpeg/png dataURL
+ */
+function compressImageDataUrl(dataUrl, maxEdge, quality) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      let w = img.naturalWidth || img.width;
+      let h = img.naturalHeight || img.height;
+      if (!w || !h) {
+        reject(new Error('bad image'));
+        return;
+      }
+      const scale = Math.min(1, maxEdge / Math.max(w, h));
+      w = Math.max(1, Math.round(w * scale));
+      h = Math.max(1, Math.round(h * scale));
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        reject(new Error('no ctx'));
+        return;
+      }
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, w, h);
+      ctx.drawImage(img, 0, 0, w, h);
+      try {
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      } catch (e) {
+        reject(e);
+      }
+    };
+    img.onerror = () => reject(new Error('load fail'));
+    img.src = dataUrl;
+  });
+}
+
+function applySheetBackground(page, cfg) {
+  const url = resolveBgUrl(cfg);
+  if (!url) return;
+  page.classList.add('has-bg');
+  // 边缘装饰默认清晰不透明；允许略调淡
+  const opacity = Math.max(0.4, Math.min(1, (cfg.bgOpacity != null ? cfg.bgOpacity : 100) / 100));
+  const fit = cfg.bgFit === 'contain' ? 'contain' : 'cover';
+  const edgeOnly = cfg.bgEdgeOnly !== false;
+
+  if (edgeOnly) {
+    page.classList.add('has-bg-edge-only');
+  }
+
+  const bg = document.createElement('div');
+  bg.className = 'sheet-bg' + (edgeOnly ? ' is-edge-only' : '');
+  bg.setAttribute('aria-hidden', 'true');
+  bg.style.backgroundImage = `url(${JSON.stringify(url)})`;
+  bg.style.backgroundSize = fit;
+  // 靠上对齐，减少大片草地被裁到纸面中下部
+  bg.style.backgroundPosition = fit === 'contain' ? 'center center' : 'center top';
+  bg.style.backgroundRepeat = 'no-repeat';
+  bg.style.opacity = String(opacity);
+  bg.style.filter = 'none';
+  page.appendChild(bg);
+}
+
 /* ============ Page ============ */
 function createPage(cfg, dims, pageNum, totalPages) {
   const page = document.createElement('div');
@@ -851,6 +1567,9 @@ function createPage(cfg, dims, pageNum, totalPages) {
   page.style.setProperty('--m-right', cfg.marginRight + 'mm');
   page.style.setProperty('--m-bottom', cfg.marginBottom + 'mm');
   page.style.setProperty('--m-left', cfg.marginLeft + 'mm');
+
+  // 背景层（绝对定位，在内容之下）
+  applySheetBackground(page, cfg);
 
   const headerH = cfg.pageHeaderHeight || 10;
   const footerH = cfg.pageFooterHeight || 10;
@@ -928,9 +1647,14 @@ async function render() {
   const cfg = readConfig();
   setupPrintCss(cfg);
   updateStrokeModeUi();
+  updateBgOptionsUi();
 
   const pagesEl = $('pages');
-  const chars = parseChars(cfg.text);
+  updatePinyinOptionsUi();
+  const rawChars = parseChars(cfg.text);
+  // 校对面板用「含手动标记」的原始解析结果
+  refreshPinyinReview(rawChars, cfg);
+  const chars = annotateChars(rawChars, cfg);
   const isStroke = cfg.charMode === 'stroke';
   const repeat = Math.max(1, parseInt(cfg.repeat, 10) || 1);
 
@@ -997,6 +1721,7 @@ async function render() {
   if (cfg.showPageHeader) contentH -= (cfg.pageHeaderHeight || 10);
   if (cfg.showPageFooter) contentH -= (cfg.pageFooterHeight || 10);
   if (cfg.sheetHeader) contentH -= cfg.headerHeight;
+  // 背景只做纸张边缘装饰，不占用排版高度（避免切换背景后底部空出半页风景）
 
   const { cellW, cellH, perRow } = getCellDims(cfg, contentW);
 
@@ -1225,6 +1950,8 @@ const DEFAULTS = {
   repeat: 1,
   charMode: 'stroke',
   ownRow: true,
+  showPinyin: true,
+  pinyinStyle: 'symbol',
   fontFamily: 'LXGW WenKai',
   gridType: 'tian',
   lineStyle: 'dashed',
@@ -1248,7 +1975,11 @@ const DEFAULTS = {
   headerTitle: '字帖',
   headerSubtitle: '',
   showMeta: true,
-  headerHeight: 32
+  headerHeight: 32,
+  bgType: 'none',
+  bgOpacity: 100,
+  bgFit: 'cover',
+  bgEdgeOnly: true
 };
 function reset() {
   for (const k in DEFAULTS) {
@@ -1263,6 +1994,9 @@ function reset() {
   document.querySelector('.header-options').classList.toggle('active', $('sheetHeader').checked);
   if ($('ownRowLabel') && $('ownRow')) $('ownRowLabel').textContent = $('ownRow').checked ? '开启' : '关闭';
   updateStrokeModeUi();
+  updatePinyinOptionsUi();
+  updateBgOptionsUi();
+  // 重置不清除拼音校对 / 自定义背景缓存，避免误伤
   render();
 }
 
@@ -1375,6 +2109,11 @@ function closeAllCustomSelects(except) {
   document.querySelectorAll('.custom-select.is-open').forEach(wrap => {
     if (except && wrap === except) return;
     wrap.classList.remove('is-open');
+    const btn = wrap.querySelector('.custom-select-trigger');
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+    // 面板可能已 portal 到 body
+    const panel = wrap.__panel || wrap.querySelector('.custom-select-panel');
+    if (panel) panel.style.display = 'none';
   });
 }
 
@@ -1382,27 +2121,51 @@ function positionCustomSelectPanel(wrap) {
   const btn = wrap.querySelector('.custom-select-trigger');
   const panel = wrap.querySelector('.custom-select-panel');
   if (!btn || !panel) return;
+
+  // 挂到 body，保证 fixed 相对视口（避免祖先 transform/will-change/overflow 干扰）
+  if (panel.parentElement !== document.body) {
+    document.body.appendChild(panel);
+  }
+
   const r = btn.getBoundingClientRect();
   const gap = 4;
   const pad = 8;
-  panel.style.left = r.left + 'px';
-  panel.style.width = r.width + 'px';
-  panel.style.top = (r.bottom + gap) + 'px';
-  // 先显示再量高度，必要时翻到上方
+  const width = r.width;
+  let left = r.left;
+  // 防止贴出右边界
+  left = Math.min(left, window.innerWidth - width - pad);
+  left = Math.max(pad, left);
+
+  panel.style.position = 'fixed';
+  panel.style.left = left + 'px';
+  panel.style.width = width + 'px';
+  panel.style.right = 'auto';
+  panel.style.zIndex = '5000';
+
+  const spaceBelow = window.innerHeight - r.bottom - gap - pad;
+  const spaceAbove = r.top - gap - pad;
+  const preferBelow = spaceBelow >= 120 || spaceBelow >= spaceAbove;
+
+  if (preferBelow) {
+    panel.style.top = (r.bottom + gap) + 'px';
+    panel.style.bottom = 'auto';
+    panel.style.maxHeight = Math.max(100, spaceBelow) + 'px';
+  } else {
+    panel.style.maxHeight = Math.max(100, spaceAbove) + 'px';
+    // 先设 top，量高后再贴到按钮上方
+    panel.style.top = pad + 'px';
+    panel.style.bottom = 'auto';
+  }
+
+  // 打开后再量真实高度，向上展开时贴齐按钮
   requestAnimationFrame(() => {
-    const pr = panel.getBoundingClientRect();
-    if (pr.bottom > window.innerHeight - pad && r.top > pr.height + gap + pad) {
-      panel.style.top = (r.top - pr.height - gap) + 'px';
+    if (!wrap.classList.contains('is-open')) return;
+    const br = btn.getBoundingClientRect();
+    const ph = panel.offsetHeight;
+    if (!preferBelow) {
+      panel.style.top = Math.max(pad, br.top - ph - gap) + 'px';
     } else {
-      // 仍可能超底：限制 max-height
-      const spaceBelow = window.innerHeight - r.bottom - gap - pad;
-      const spaceAbove = r.top - gap - pad;
-      if (spaceBelow < 120 && spaceAbove > spaceBelow) {
-        panel.style.top = Math.max(pad, r.top - Math.min(pr.height, spaceAbove) - gap) + 'px';
-        panel.style.maxHeight = Math.max(100, spaceAbove) + 'px';
-      } else {
-        panel.style.maxHeight = Math.max(100, spaceBelow) + 'px';
-      }
+      panel.style.top = (br.bottom + gap) + 'px';
     }
   });
 }
@@ -1432,6 +2195,7 @@ function initCustomSelects() {
     const panel = document.createElement('div');
     panel.className = 'custom-select-panel';
     panel.setAttribute('role', 'listbox');
+    wrap.__panel = panel;
 
     wrap.appendChild(btn);
     wrap.appendChild(panel);
@@ -1486,14 +2250,20 @@ function initCustomSelects() {
       buildPanel();
       wrap.classList.add('is-open');
       btn.setAttribute('aria-expanded', 'true');
+      panel.style.display = 'block';
       positionCustomSelectPanel(wrap);
+      // 只在面板内部滚动到选中项，禁止 scrollIntoView 带动侧栏滚动（会错位）
       const sel = panel.querySelector('.custom-select-option.is-selected');
-      if (sel) sel.scrollIntoView({ block: 'nearest' });
+      if (sel) {
+        const top = sel.offsetTop - (panel.clientHeight / 2) + (sel.offsetHeight / 2);
+        panel.scrollTop = Math.max(0, top);
+      }
     }
 
     function close() {
       wrap.classList.remove('is-open');
       btn.setAttribute('aria-expanded', 'false');
+      panel.style.display = 'none';
     }
 
     btn.addEventListener('click', e => {
@@ -1523,18 +2293,23 @@ function init() {
   initTheme();
   initTabs();
   clearLegacyStrokeFailCache();
+  loadPinyinOverrides();
   updateStrokeModeUi();
+  updatePinyinOptionsUi();
+  initPinyinReviewUi();
+  initBgControls();
   initHelpTips();
   initCustomSelects();
   initDrawer();
 
-  const ids = ['text','repeat','charMode','ownRow','fontFamily','gridType','lineStyle','lineWidth',
+  const ids = ['text','repeat','charMode','ownRow','showPinyin','pinyinStyle','fontFamily','gridType','lineStyle','lineWidth',
     'lineColor','borderColor','paper','orientation','marginTop','marginBottom','marginLeft',
     'marginRight','cellSize','perRow',
     'showPageHeader','showPageFooter','headerLeft','headerCenter','headerRight',
     'footerLeft','footerCenter','footerRight','pageNumberFmt','pageNumberPos',
     'pageHeaderHeight','pageFooterHeight',
-    'sheetHeader','headerTitle','headerSubtitle','showMeta','headerHeight'];
+    'sheetHeader','headerTitle','headerSubtitle','showMeta','headerHeight',
+    'bgType','bgOpacity','bgFit','bgEdgeOnly'];
   ids.forEach(id => {
     const el = $(id);
     if (el) {
@@ -1544,6 +2319,12 @@ function init() {
   });
 
   $('charMode').addEventListener('change', updateStrokeModeUi);
+  if ($('showPinyin')) {
+    $('showPinyin').addEventListener('change', updatePinyinOptionsUi);
+  }
+  if ($('gridType')) {
+    $('gridType').addEventListener('change', updatePinyinOptionsUi);
+  }
 
   $('showPageHeader').addEventListener('change', () => {
     document.querySelector('.page-header-options').classList.toggle('active', $('showPageHeader').checked);

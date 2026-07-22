@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 210 297" width="2100" height="2970" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="paper" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f7f4ec"/>
+      <stop offset="100%" stop-color="#efe9dc"/>
+    </linearGradient>
+  </defs>
+  <rect width="210" height="297" fill="url(#paper)"/>
+  <!-- bamboo left edge -->
+  <g opacity="0.55" stroke="#3d5c44" fill="none" stroke-linecap="round">
+    <path d="M16 297 V28" stroke-width="2.4"/>
+    <path d="M16 70 h9 M16 115 h8 M16 160 h9 M16 205 h8 M16 250 h9" stroke-width="0.7"/>
+    <path d="M28 297 V55" stroke-width="1.7"/>
+    <path d="M28 90 h7 M28 145 h7 M28 200 h7 M28 255 h7" stroke-width="0.55"/>
+    <path d="M18 85 C4 78 2 70 1 58" stroke-width="0.8"/>
+    <path d="M18 92 C6 100 3 110 2 120" stroke-width="0.7"/>
+    <path d="M20 140 C4 130 1 120 0 108" stroke-width="0.75"/>
+    <path d="M30 125 C44 116 52 108 58 96" stroke-width="0.65"/>
+    <path d="M30 180 C44 170 54 160 62 148" stroke-width="0.6"/>
+  </g>
+  <!-- bamboo right edge -->
+  <g opacity="0.4" stroke="#4a6b52" fill="none" stroke-linecap="round">
+    <path d="M194 297 V70" stroke-width="2"/>
+    <path d="M194 110 h-7 M194 160 h-7 M194 210 h-7 M194 255 h-7" stroke-width="0.55"/>
+    <path d="M192 145 C204 136 210 126 212 114" stroke-width="0.6"/>
+    <path d="M192 200 C206 190 212 180 214 168" stroke-width="0.55"/>
+  </g>
+</svg>
