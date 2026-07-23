@@ -198,41 +198,45 @@
         </div>
 
         <label class="field">
-          <span>字体</span>
+          <span class="label-with-help">
+            字体
+            <span class="help-tip" tabindex="0" role="button" aria-label="字体版权说明">
+              <span class="help-tip-icon" aria-hidden="true">?</span>
+              <span class="help-tip-pop" role="tooltip">
+                推荐优先使用开源免费商用字体（霞鹜文楷、思源系列）。若选择系统商业字体（如微软雅黑、华文行楷、方正姚体等），生成的字帖仅限个人非商业学习交流使用。
+              </span>
+            </span>
+          </span>
           <select id="fontFamily">
-            <optgroup label="楷书">
-              <option value="LXGW WenKai">霞鹜文楷</option>
-              <option value="STKaiti, KaiTi">华文楷体</option>
-              <option value="KaiTi" selected>楷体（系统）</option>
-              <option value="KaiTi_GB2312, KaiTi">楷体_GB2312</option>
+            <optgroup label="开源 / 免费商用字体（推荐）">
+              <option value="LXGW WenKai" selected>霞鹜文楷（开源 / 免费商用）</option>
+              <option value="Noto Serif SC, Songti SC, SimSun">思源宋体（开源 / 免费商用）</option>
+              <option value="Noto Sans SC, PingFang SC, Microsoft YaHei">思源黑体（开源 / 免费商用）</option>
             </optgroup>
-            <optgroup label="宋体 / 仿宋">
+            <optgroup label="系统标准字体（仅限个人非商业学习）">
+              <option value="STKaiti, KaiTi">华文楷体</option>
+              <option value="KaiTi">楷体（系统）</option>
+              <option value="KaiTi_GB2312, KaiTi">楷体_GB2312</option>
               <option value="SimSun, Songti">宋体</option>
               <option value="NSimSun, SimSun">新宋体</option>
               <option value="STSong, SimSun">华文宋体</option>
               <option value="FangSong, STFangsong">仿宋</option>
               <option value="STFangsong, FangSong">华文仿宋</option>
             </optgroup>
-            <optgroup label="行书 / 草书">
-              <option value="STXingkai, KaiTi">华文行楷</option>
-              <option value="Xingkai SC, STXingkai">行楷 SC</option>
-              <option value="STCaoshu, KaiTi">华文草书</option>
-            </optgroup>
-            <optgroup label="隶书 / 魏碑">
-              <option value="STLiti, LiSu">华文隶书</option>
-              <option value="LiSu, STLiti">隶书</option>
-              <option value="STXinwei, SimSun">华文新魏</option>
-            </optgroup>
-            <optgroup label="黑体">
-              <option value="Microsoft YaHei">微软雅黑</option>
-              <option value="SimHei, Microsoft YaHei">黑体</option>
-              <option value="PingFang SC, Microsoft YaHei">苹方</option>
-              <option value="STHeiti, SimHei">华文黑体</option>
-            </optgroup>
-            <optgroup label="其他">
-              <option value="STCaiyun, SimSun">华文彩云</option>
-              <option value="FZYaoTi, SimSun">方正姚体</option>
-              <option value="YouYuan, FangSong">幼圆</option>
+            <optgroup label="系统商业艺术字体（仅限个人非商业学习）">
+              <option value="STXingkai, KaiTi">华文行楷（商业字体）</option>
+              <option value="Xingkai SC, STXingkai">行楷 SC（商业字体）</option>
+              <option value="STCaoshu, KaiTi">华文草书（商业字体）</option>
+              <option value="STLiti, LiSu">华文隶书（商业字体）</option>
+              <option value="LiSu, STLiti">隶书（商业字体）</option>
+              <option value="STXinwei, SimSun">华文新魏（商业字体）</option>
+              <option value="Microsoft YaHei">微软雅黑（商业字体）</option>
+              <option value="SimHei, Microsoft YaHei">黑体（商业字体）</option>
+              <option value="PingFang SC, Microsoft YaHei">苹方（商业字体）</option>
+              <option value="STHeiti, SimHei">华文黑体（商业字体）</option>
+              <option value="STCaiyun, SimSun">华文彩云（商业字体）</option>
+              <option value="FZYaoTi, SimSun">方正姚体（商业字体）</option>
+              <option value="YouYuan, FangSong">幼圆（商业字体）</option>
             </optgroup>
           </select>
         </label>
@@ -585,6 +589,12 @@
           </svg>
         </button>
       </div>
+      <div class="sidebar-subfooter">
+        <button type="button" id="disclaimerBtn" class="subfooter-disclaimer-btn" title="查看版权与使用免责声明">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <span>版权与使用免责声明</span>
+        </button>
+      </div>
     </section>
   </aside>
 
@@ -593,6 +603,53 @@
       <div id="pages"></div>
     </div>
   </main>
+
+  <!-- 版权与免责声明 极简极奢弹窗 (Vercel/Apple Style) -->
+  <div id="disclaimerModal" class="disclaimer-modal" hidden aria-hidden="true" role="dialog" aria-labelledby="disclaimerTitle">
+    <div class="disclaimer-backdrop" id="disclaimerBackdrop"></div>
+    <div class="disclaimer-dialog">
+      <button type="button" id="disclaimerCloseBtn" class="disclaimer-close-btn" aria-label="关闭">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+
+      <div class="disclaimer-modal-header">
+        <div class="disclaimer-shield-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <h3 id="disclaimerTitle">版权与使用免责声明</h3>
+      </div>
+
+      <div class="disclaimer-modal-body">
+        <div class="disclaimer-section blue">
+          <div class="disclaimer-sec-title">
+            <span class="sec-dot"></span>
+            <h4>技术服务说明</h4>
+          </div>
+          <p>本应用为字帖排版与练习工具，未打包或分发任何商业字体文件。字体渲染主要依赖用户设备本地字体或公有开源 CDN。</p>
+        </div>
+
+        <div class="disclaimer-section green">
+          <div class="disclaimer-sec-title">
+            <span class="sec-dot"></span>
+            <h4>开源字体许可</h4>
+          </div>
+          <p>应用默认推荐的<strong>「霞鹜文楷」</strong>及<strong>「思源宋体 / 思源黑体」</strong>遵循 SIL OFL / Apache 开源协议，允许免费用于个人及商业用途。</p>
+        </div>
+
+        <div class="disclaimer-section amber">
+          <div class="disclaimer-sec-title">
+            <span class="sec-dot"></span>
+            <h4>商业字体合规提醒</h4>
+          </div>
+          <p>若用户自行选用系统本地商业字体（如微软雅黑、华文行楷、方正姚体等），生成的字帖仅限个人非商业学习。若需用于商业销售、出版或培训，请务必提前取得版权方商业授权。</p>
+        </div>
+      </div>
+
+      <div class="disclaimer-modal-footer">
+        <button type="button" id="disclaimerConfirmBtn" class="disclaimer-modal-btn">我知道了</button>
+      </div>
+    </div>
+  </div>
 
   <script src="vendor/pinyin-pro/index.js"></script>
   <script src="app.js?v=56"></script>

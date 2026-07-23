@@ -873,6 +873,8 @@ function cssFontFamily(value) {
   // 预设：选项 value → 完整跨平台栈
   const PRESETS = {
     'LXGW WenKai': '"LXGW WenKai", "Kaiti SC", KaiTi, STKaiti, serif',
+    'Noto Serif SC, Songti SC, SimSun': '"Noto Serif SC", "Songti SC", SimSun, STSong, Songti, serif',
+    'Noto Sans SC, PingFang SC, Microsoft YaHei': '"Noto Sans SC", "PingFang SC", "Microsoft YaHei", "Heiti SC", sans-serif',
     'KaiTi': '"Kaiti SC", KaiTi, STKaiti, "BiauKai", serif',
     'STKaiti, KaiTi': 'STKaiti, "Kaiti SC", KaiTi, serif',
     'KaiTi_GB2312, KaiTi': 'KaiTi_GB2312, "Kaiti SC", KaiTi, STKaiti, serif',
@@ -2359,6 +2361,42 @@ function init() {
     const ro = new ResizeObserver(() => fitPreview());
     ro.observe($('preview'));
   }
+
+  // 版权与免责声明 弹窗逻辑
+  const disclaimerModal = $('disclaimerModal');
+  const disclaimerBtn = $('disclaimerBtn');
+  const disclaimerCloseBtn = $('disclaimerCloseBtn');
+  const disclaimerBackdrop = $('disclaimerBackdrop');
+  const disclaimerConfirmBtn = $('disclaimerConfirmBtn');
+
+  const openDisclaimerModal = () => {
+    if (!disclaimerModal) return;
+    disclaimerModal.hidden = false;
+    disclaimerModal.setAttribute('aria-hidden', 'false');
+    requestAnimationFrame(() => {
+      disclaimerModal.classList.add('is-open');
+    });
+  };
+
+  const closeDisclaimerModal = () => {
+    if (!disclaimerModal) return;
+    disclaimerModal.classList.remove('is-open');
+    setTimeout(() => {
+      disclaimerModal.hidden = true;
+      disclaimerModal.setAttribute('aria-hidden', 'true');
+    }, 250);
+  };
+
+  if (disclaimerBtn) disclaimerBtn.addEventListener('click', openDisclaimerModal);
+  if (disclaimerCloseBtn) disclaimerCloseBtn.addEventListener('click', closeDisclaimerModal);
+  if (disclaimerBackdrop) disclaimerBackdrop.addEventListener('click', closeDisclaimerModal);
+  if (disclaimerConfirmBtn) disclaimerConfirmBtn.addEventListener('click', closeDisclaimerModal);
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && disclaimerModal && !disclaimerModal.hidden) {
+      closeDisclaimerModal();
+    }
+  });
+
   render();
 }
 document.addEventListener('DOMContentLoaded', init);
