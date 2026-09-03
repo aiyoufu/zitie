@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme-pref="auto">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
+  <title>字帖</title>
+  <script>
+    (function() {
+      try {
+        var saved = localStorage.getItem('zhitie-theme') || 'auto';
+        var dark = saved === 'dark' || (saved === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme-pref', saved);
+      } catch (e) {}
+    })();
+  </script>
+  <link rel="stylesheet" href="styles.css?v=58" />
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+</head>
+<body>
+  <!-- 移动端顶部工具栏（极简 Header） -->
+  <header id="mobile-header">
+    <div class="mobile-brand">
+      <svg class="brand-logo-icon" width="28" height="28" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="字帖图标">
+        <rect x="2" y="2" width="28" height="28" rx="7.5" class="brand-icon-bg" />
+        <!-- 白底田字格纸张卡片与十字虚线 -->
+        <rect x="5.5" y="5.5" width="21" height="21" rx="2.5" class="brand-tian-bg" />
+        <rect x="5.5" y="5.5" width="21" height="21" rx="2.5" class="brand-tian-border" stroke-width="1.2" fill="none"/>
+        <line x1="5.5" y1="16" x2="26.5" y2="16" class="brand-grid-line" stroke-dasharray="2.5 2" stroke-width="1"/>
+        <line x1="16" y1="5.5" x2="16" y2="26.5" class="brand-grid-line" stroke-dasharray="2.5 2" stroke-width="1"/>
+        <!-- 经典红铅笔（整体向右上平移，笔尖位于 11.5, 20.5） -->
+        <path d="M 17.5 10.5 L 25.5 2.5 C 26.3 1.7 27.7 1.7 28.5 2.5 C 29.3 3.3 29.3 4.7 28.5 5.5 L 21.5 14.5 Z" fill="#ef4444" class="brand-pencil-body"/>
+        <path d="M 17.5 10.5 L 25.5 2.5 L 27 4 L 19.5 12.5 Z" fill="#f87171" class="brand-pencil-highlight"/>
+        <path d="M 13.5 16.5 L 17.5 10.5 C 18.5 12.5 20.5 13.5 21.5 14.5 L 15.5 18.5 Z" fill="#fed7aa" class="brand-pencil-wood"/>
+        <path d="M 11.5 20.5 L 13.5 16.5 L 15.5 18.5 Z" fill="#1f2937" class="brand-pencil-lead"/>
+        <circle cx="10.5" cy="21.5" r="1" fill="#374151" class="brand-ink-dot"/>
+      </svg>
+      <h1>字帖</h1>
+    </div>
+  </header>
+
+  <!-- 移动端底部悬浮 Dock 菜单栏 -->
+  <div id="mobile-floating-dock" class="mobile-floating-dock" aria-label="快捷操作菜单">
+    <div class="dock-container">
+      <div class="mobile-theme-dropdown" id="mobileThemeDropdown">
+        <button id="mobileThemeBtn" type="button" class="dock-item" title="切换主题" aria-label="切换主题" aria-haspopup="true" aria-expanded="false">
+          <span id="mobileThemeIcon" class="dock-icon-wrapper"></span>
+          <span class="dock-item-label">主题</span>
+        </button>
+        <div class="mobile-theme-menu" id="mobileThemeMenu" role="menu" hidden>
+          <button type="button" class="theme-menu-item" data-theme-set="light" role="menuitem">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/>
+              <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+            </svg>
+            <span>浅色</span>
+          </button>
+          <button type="button" class="theme-menu-item" data-theme-set="dark" role="menuitem">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 14.5A8.5 8.5 0 0 1 9.5 3 7 7 0 1 0 21 14.5z"/>
+            </svg>
+            <span>深色</span>
+          </button>
+          <button type="button" class="theme-menu-item" data-theme-set="auto" role="menuitem">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="4" width="18" height="13" rx="2"/>
+              <path d="M8 21h8M12 17v4"/>
+            </svg>
+            <span>跟随系统</span>
+          </button>
+        </div>
+      </div>
+
+      <button id="mobilePrintBtn" type="button" class="dock-item" title="打印字帖" aria-label="打印字帖">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 6 2 18 2 18 9"></polyline>
+          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+          <rect x="6" y="14" width="12" height="8"></rect>
+        </svg>
+        <span class="dock-item-label">打印</span>
+      </button>
+
+      <button id="toggleDrawerBtn" type="button" class="dock-item" title="配置参数" aria-label="配置参数">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+        <span class="dock-item-label">设置</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- 抽屉蒙层 -->
+  <div id="drawer-backdrop" class="drawer-backdrop" aria-hidden="true"></div>
+
+  <aside id="controls">
+    <div class="drawer-handle" aria-hidden="true"></div>
+    <div class="drawer-top-bar">
+      <span class="drawer-title">参数配置</span>
+      <button id="closeDrawerBtn" type="button" class="drawer-close-btn" aria-label="关闭面板">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+    <header>
+      <div class="brand-title-wrap">
+        <svg class="brand-logo-icon" width="26" height="26" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="字帖图标">
+          <rect x="2" y="2" width="28" height="28" rx="7.5" class="brand-icon-bg" />
+          <!-- 白底田字格纸张卡片与十字虚线 -->
+          <rect x="5.5" y="5.5" width="21" height="21" rx="2.5" class="brand-tian-bg" />
+          <rect x="5.5" y="5.5" width="21" height="21" rx="2.5" class="brand-tian-border" stroke-width="1.2" fill="none"/>
+          <line x1="5.5" y1="16" x2="26.5" y2="16" class="brand-grid-line" stroke-dasharray="2.5 2" stroke-width="1"/>
+          <line x1="16" y1="5.5" x2="16" y2="26.5" class="brand-grid-line" stroke-dasharray="2.5 2" stroke-width="1"/>
+          <!-- 经典红铅笔（整体向右上平移，笔尖位于 11.5, 20.5） -->
+          <path d="M 17.5 10.5 L 25.5 2.5 C 26.3 1.7 27.7 1.7 28.5 2.5 C 29.3 3.3 29.3 4.7 28.5 5.5 L 21.5 14.5 Z" fill="#ef4444" class="brand-pencil-body"/>
+          <path d="M 17.5 10.5 L 25.5 2.5 L 27 4 L 19.5 12.5 Z" fill="#f87171" class="brand-pencil-highlight"/>
+          <path d="M 13.5 16.5 L 17.5 10.5 C 18.5 12.5 20.5 13.5 21.5 14.5 L 15.5 18.5 Z" fill="#fed7aa" class="brand-pencil-wood"/>
+          <path d="M 11.5 20.5 L 13.5 16.5 L 15.5 18.5 Z" fill="#1f2937" class="brand-pencil-lead"/>
+          <circle cx="10.5" cy="21.5" r="1" fill="#374151" class="brand-ink-dot"/>
+        </svg>
+        <h1>字帖</h1>
+      </div>
+      <p class="hint">配置参数 · 实时预览 · 打印</p>
+    </header>
+
+    <div id="swipeGuideHint" class="swipe-guide-banner" hidden aria-hidden="true">
+      <div class="swipe-hand-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"/>
+          <path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v6"/>
+          <path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"/>
+          <path d="M18 8a2 2 0 0 1 2 2v4a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/>
+        </svg>
+      </div>
+      <span>左右滑动区域可快速切换 Tab 标签页</span>
+      <button type="button" class="swipe-guide-close" id="closeSwipeGuideBtn" aria-label="关闭提示">✕</button>
+    </div>
+
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-tab="content" role="tab">内容</button>
+      <button class="tab" data-tab="grid" role="tab">格子</button>
+      <button class="tab" data-tab="page" role="tab">页面</button>
+    </nav>
+
+    <div class="tab-body" data-panel="content" role="tabpanel">
+      <section class="panel">
+        <label class="field">
+          <span>要练习的字</span>
+          <textarea id="text" rows="4" placeholder="一行一字，或连续输入；可用 (pīnyīn) 手动标注（优先于自动注音）"></textarea>
+        </label>
+
+        <div class="section-title">拼音</div>
+        <div class="field own-row-field" id="showPinyinRow">
+          <span class="label-with-help">
+            显示拼音
+            <span class="help-tip" tabindex="0" role="button" aria-label="显示拼音说明">
+              <span class="help-tip-icon" aria-hidden="true">?</span>
+              <span class="help-tip-pop" role="tooltip">
+                开启后为汉字注音（带声调）。「拼音田字格」版式固定为上四线+下田字：开=印读音，关=上半空白供默写。手动「字(zì)」优先；多音字可在下方校对。四线三格是纯拼音纸，不使用此开关。
+              </span>
+            </span>
+          </span>
+          <label class="switch-field">
+            <input type="checkbox" id="showPinyin" checked />
+            <span id="showPinyinLabel">开启</span>
+          </label>
+        </div>
+        <p id="pinyinGridHint" class="pinyin-grid-hint" hidden>
+          当前为「四线三格」：空白拼音练习纸，不注音。练字+拼音请改用「拼音田字格」。
+        </p>
+        <div id="pinyinOptions" class="pinyin-options">
+          <label class="field">
+            <span>拼音样式</span>
+            <select id="pinyinStyle">
+              <option value="symbol" selected>带声调（hàn）</option>
+              <option value="none">无声调（han）</option>
+              <option value="blank">留空（默写拼音）</option>
+            </select>
+          </label>
+          <div id="pinyinReview" class="pinyin-review" hidden>
+            <div class="pinyin-review-head">
+              <span>拼音校对</span>
+              <span id="pinyinReviewMeta" class="pinyin-review-hint"></span>
+            </div>
+            <div class="pinyin-review-toolbar">
+              <div class="pinyin-review-tabs" role="tablist" aria-label="校对范围">
+                <button type="button" class="pinyin-filter-btn is-active" data-py-filter="poly" role="tab" aria-selected="true">多音字</button>
+                <button type="button" class="pinyin-filter-btn" data-py-filter="edited" role="tab" aria-selected="false">已改</button>
+                <button type="button" class="pinyin-filter-btn" data-py-filter="all" role="tab" aria-selected="false">全部</button>
+              </div>
+              <input type="search" id="pinyinReviewSearch" class="pinyin-review-search" placeholder="搜字或拼音" autocomplete="off" hidden />
+            </div>
+            <p id="pinyinReviewEmpty" class="pinyin-review-empty" hidden></p>
+            <div id="pinyinReviewList" class="pinyin-review-list"></div>
+          </div>
+        </div>
+
+        <label class="field">
+          <span class="label-with-help">
+            字体
+            <span class="help-tip" tabindex="0" role="button" aria-label="字体版权说明">
+              <span class="help-tip-icon" aria-hidden="true">?</span>
+              <span class="help-tip-pop" role="tooltip">
+                推荐优先使用开源免费商用字体（霞鹜文楷、思源系列）。若选择系统商业字体（如微软雅黑、华文行楷、方正姚体等），生成的字帖仅限个人非商业学习交流使用。
+              </span>
+            </span>
+          </span>
+          <select id="fontFamily">
+            <optgroup label="开源 / 免费商用字体（推荐）">
+              <option value="LXGW WenKai" selected>霞鹜文楷（开源 / 免费商用）</option>
+              <option value="Noto Serif SC, Songti SC, SimSun">思源宋体（开源 / 免费商用）</option>
+              <option value="Noto Sans SC, PingFang SC, Microsoft YaHei">思源黑体（开源 / 免费商用）</option>
+            </optgroup>
+            <optgroup label="系统标准字体（仅限个人非商业学习）">
+              <option value="STKaiti, KaiTi">华文楷体</option>
+              <option value="KaiTi">楷体（系统）</option>
+              <option value="KaiTi_GB2312, KaiTi">楷体_GB2312</option>
+              <option value="SimSun, Songti">宋体</option>
+              <option value="NSimSun, SimSun">新宋体</option>
+              <option value="STSong, SimSun">华文宋体</option>
+              <option value="FangSong, STFangsong">仿宋</option>
+              <option value="STFangsong, FangSong">华文仿宋</option>
+            </optgroup>
+            <optgroup label="系统商业艺术字体（仅限个人非商业学习）">
+              <option value="STXingkai, KaiTi">华文行楷（商业字体）</option>
+              <option value="Xingkai SC, STXingkai">行楷 SC（商业字体）</option>
+              <option value="STCaoshu, KaiTi">华文草书（商业字体）</option>
+              <option value="STLiti, LiSu">华文隶书（商业字体）</option>
+              <option value="LiSu, STLiti">隶书（商业字体）</option>
+              <option value="STXinwei, SimSun">华文新魏（商业字体）</option>
+              <option value="Microsoft YaHei">微软雅黑（商业字体）</option>
+              <option value="SimHei, Microsoft YaHei">黑体（商业字体）</option>
+              <option value="PingFang SC, Microsoft YaHei">苹方（商业字体）</option>
+              <option value="STHeiti, SimHei">华文黑体（商业字体）</option>
+              <option value="STCaiyun, SimSun">华文彩云（商业字体）</option>
+              <option value="FZYaoTi, SimSun">方正姚体（商业字体）</option>
+              <option value="YouYuan, FangSong">幼圆（商业字体）</option>
+            </optgroup>
+          </select>
+        </label>
+        <label class="field">
+          <span class="label-with-help">
+            字帖模式
+            <span class="help-tip" tabindex="0" role="button" aria-label="字帖模式说明">
+              <span class="help-tip-icon" aria-hidden="true">?</span>
+              <span class="help-tip-pop" role="tooltip">
+                笔顺拆分：按正确笔顺一笔一笔拆开练（完整字 → 第1笔 → 前2笔… → 空格自己写）。此模式下范字和逐笔都用统一的标准笔顺字，不跟上面的「字体」走，这样更清晰、不会重影。描红、临摹、混合、空白等其它模式，仍使用上面选的字体。
+              </span>
+            </span>
+          </span>
+          <select id="charMode">
+            <option value="stroke" selected>笔顺拆分</option>
+            <option value="outline">描红</option>
+            <option value="ghost">临摹</option>
+            <option value="mix">混合</option>
+            <option value="none">空白</option>
+          </select>
+        </label>
+        <label class="field">
+          <span id="repeatLabel">练习格数</span>
+          <input id="repeat" type="number" min="1" max="20" value="1" />
+        </label>
+        <div class="field own-row-field">
+          <span>单字独立成行</span>
+          <label class="switch-field">
+            <input type="checkbox" id="ownRow" checked />
+            <span id="ownRowLabel">开启</span>
+          </label>
+        </div>
+        <div id="strokeOptions" class="stroke-options" hidden>
+          <p class="stroke-status" id="strokeStatus" hidden></p>
+        </div>
+      </section>
+    </div>
+
+    <div class="tab-body" data-panel="grid" role="tabpanel" hidden>
+      <section class="panel">
+        <label class="field">
+          <span>格子类型</span>
+          <select id="gridType">
+            <option value="tian" selected>田字格</option>
+            <option value="mi">米字格</option>
+            <option value="jiu">九宫格</option>
+            <option value="hui">回宫格</option>
+            <option value="blank">空白方格</option>
+            <option value="pinyin">拼音田字格（上四线+下田字）</option>
+            <option value="fourline">四线三格（纯拼音）</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>辅助线型</span>
+          <select id="lineStyle">
+            <option value="dashed" selected>虚线</option>
+            <option value="solid">实线</option>
+            <option value="dotted">点线</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>线宽 pt</span>
+          <input id="lineWidth" type="number" min="0.1" max="3" step="0.1" value="0.6" />
+        </label>
+        <label class="field">
+          <span>格子尺寸 mm</span>
+          <input id="cellSize" type="number" min="8" max="60" step="0.5" value="14" />
+        </label>
+        <label class="field">
+          <span>辅助线颜色</span>
+          <input id="lineColor" type="color" value="#e0e0e0" />
+        </label>
+        <label class="field">
+          <span>边框颜色</span>
+          <input id="borderColor" type="color" value="#999999" />
+        </label>
+      </section>
+    </div>
+
+    <div class="tab-body" data-panel="page" role="tabpanel" hidden>
+      <section class="panel">
+        <label class="field">
+          <span>纸张类型</span>
+          <select id="paper">
+            <option value="A4" selected>A4（210×297 mm）</option>
+            <option value="A5">A5（148×210 mm）</option>
+            <option value="B5">B5（176×250 mm）</option>
+            <option value="Letter">Letter（8.5×11 in）</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>方向</span>
+          <select id="orientation">
+            <option value="portrait" selected>纵向</option>
+            <option value="landscape">横向</option>
+          </select>
+        </label>
+        <div class="field">
+          <span>页边距 mm</span>
+          <div class="grid-4">
+            <label class="field">
+              <span>上</span>
+              <input id="marginTop" type="number" min="0" max="50" value="15" />
+            </label>
+            <label class="field">
+              <span>下</span>
+              <input id="marginBottom" type="number" min="0" max="50" value="15" />
+            </label>
+            <label class="field">
+              <span>左</span>
+              <input id="marginLeft" type="number" min="0" max="50" value="15" />
+            </label>
+            <label class="field">
+              <span>右</span>
+              <input id="marginRight" type="number" min="0" max="50" value="15" />
+            </label>
+          </div>
+        </div>
+        <label class="field">
+          <span class="label-with-help">
+            每行字数
+            <span class="help-tip" tabindex="0" role="button" aria-label="每行字数说明">
+              <span class="help-tip-icon" aria-hidden="true">?</span>
+              <span class="help-tip-pop" role="tooltip">
+                控制一行里放几个字。填 0 表示按格子大小自动算；填具体数字（如 8）则固定每行 8 个字。
+              </span>
+            </span>
+          </span>
+          <input id="perRow" type="number" min="0" max="20" value="0" />
+        </label>
+
+        <div class="section-title">背景图</div>
+        <label class="field">
+          <span class="label-with-help">
+            背景样式
+            <span class="help-tip" tabindex="0" role="button" aria-label="背景图说明">
+              <span class="help-tip-icon" aria-hidden="true">?</span>
+              <span class="help-tip-pop" role="tooltip">
+                为字帖添加边缘装饰（类似练习册四周插画）。默认只在纸张边缘显示、书写区不透底；边缘清晰无模糊。打印时请开启「背景图形」。
+              </span>
+            </span>
+          </span>
+          <select id="bgType">
+            <option value="none" selected>无（纯色纸）</option>
+            <option value="landscape">春日山水（推荐）</option>
+            <option value="bamboo">竹影淡墨</option>
+            <option value="cloud">淡云草地</option>
+            <option value="custom">自定义上传</option>
+          </select>
+        </label>
+        <div id="bgOptions" class="bg-options" hidden>
+          <div id="bgCustomRow" class="bg-custom-row" hidden>
+            <label class="field">
+              <span>上传图片</span>
+              <input id="bgFile" type="file" accept="image/*" />
+            </label>
+            <p id="bgCustomStatus" class="bg-custom-status" hidden></p>
+            <button type="button" id="bgClearCustom" class="bg-clear-btn" hidden>清除已上传图片</button>
+          </div>
+          <label class="field">
+            <span>边缘透明度 <span id="bgOpacityLabel" class="field-inline-val">100%</span></span>
+            <input id="bgOpacity" type="range" min="40" max="100" step="1" value="100" />
+          </label>
+          <label class="field">
+            <span>填充方式</span>
+            <select id="bgFit">
+              <option value="cover" selected>铺满裁切</option>
+              <option value="contain">完整显示</option>
+            </select>
+          </label>
+          <div class="field own-row-field">
+            <span class="label-with-help">
+              仅边缘显示
+              <span class="help-tip" tabindex="0" role="button" aria-label="仅边缘显示说明">
+                <span class="help-tip-icon" aria-hidden="true">?</span>
+                <span class="help-tip-pop" role="tooltip">
+                  开启后装饰只出现在纸张四周，中间书写区为纯白（硬边裁切，无羽化模糊）。关闭则整页铺底（格子仍铺白底）。
+                </span>
+              </span>
+            </span>
+            <label class="switch-field">
+              <input type="checkbox" id="bgEdgeOnly" checked />
+              <span id="bgEdgeOnlyLabel">开启</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="section-title">表头</div>
+        <label class="switch-field">
+          <input type="checkbox" id="sheetHeader" />
+          <span>显示表头</span>
+        </label>
+        <div class="header-options">
+          <label class="field">
+            <span>标题</span>
+            <input id="headerTitle" type="text" value="字帖" />
+          </label>
+          <label class="field">
+            <span>副标题</span>
+            <input id="headerSubtitle" type="text" value="" />
+          </label>
+          <label class="field">
+            <span>表头高度 mm</span>
+            <input id="headerHeight" type="number" min="20" max="60" step="1" value="32" />
+          </label>
+          <label class="switch-field">
+            <input type="checkbox" id="showMeta" />
+            <span>姓名 / 班级 / 日期</span>
+          </label>
+        </div>
+
+        <div class="section-title">页眉页脚</div>
+        <label class="switch-field">
+          <input type="checkbox" id="showPageHeader" />
+          <span>显示页眉</span>
+        </label>
+        <label class="switch-field">
+          <input type="checkbox" id="showPageFooter" />
+          <span>显示页脚</span>
+        </label>
+        <div class="page-header-options">
+          <p class="micro">页眉</p>
+          <label class="field">
+            <span>页眉高度 mm</span>
+            <input id="pageHeaderHeight" type="number" min="6" max="30" step="0.5" value="10" />
+          </label>
+          <div class="grid-3">
+            <label class="field">
+              <span>左</span>
+              <input id="headerLeft" type="text" placeholder="左侧文字" />
+            </label>
+            <label class="field">
+              <span>中</span>
+              <input id="headerCenter" type="text" placeholder="中间文字" />
+            </label>
+            <label class="field">
+              <span>右</span>
+              <input id="headerRight" type="text" placeholder="右侧文字" />
+            </label>
+          </div>
+        </div>
+        <div class="page-footer-options">
+          <p class="micro">页脚</p>
+          <label class="field">
+            <span>页脚高度 mm</span>
+            <input id="pageFooterHeight" type="number" min="6" max="30" step="0.5" value="10" />
+          </label>
+          <div class="grid-3">
+            <label class="field">
+              <span>左</span>
+              <input id="footerLeft" type="text" placeholder="左侧文字" />
+            </label>
+            <label class="field">
+              <span>中</span>
+              <input id="footerCenter" type="text" placeholder="中间文字" />
+            </label>
+            <label class="field">
+              <span>右</span>
+              <input id="footerRight" type="text" placeholder="右侧文字" />
+            </label>
+          </div>
+          <div class="grid-2">
+            <label class="field">
+              <span class="label-with-help">
+                页码格式
+                <span class="help-tip" tabindex="0" role="button" aria-label="页码格式说明">
+                  <span class="help-tip-icon" aria-hidden="true">?</span>
+                  <span class="help-tip-pop" role="tooltip">
+                    选择页码怎么显示，例如「1」「1 / N」「第 X 页」。开启页码后，会盖住「页码位置」那一侧原来的页脚文字。
+                  </span>
+                </span>
+              </span>
+              <select id="pageNumberFmt">
+                <option value="none" selected>无</option>
+                <option value="num">1</option>
+                <option value="numOfTotal">1 / N</option>
+                <option value="cn">第 X 页</option>
+                <option value="dash">- X -</option>
+                <option value="p">P. X</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>页码位置</span>
+              <select id="pageNumberPos">
+                <option value="br" selected>右下</option>
+                <option value="bc">中下</option>
+                <option value="bl">左下</option>
+              </select>
+            </label>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <section class="panel actions">
+      <div class="action-btns">
+        <button id="printBtn" class="primary desktop-only-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+            <rect x="6" y="14" width="12" height="8"></rect>
+          </svg>
+          <span>打印字帖</span>
+        </button>
+        <button id="renderBtn" class="secondary desktop-only-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+          </svg>
+          <span>重新渲染</span>
+        </button>
+        <button id="mobilePreviewBtn" type="button" class="primary mobile-only-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
+          <span>预览字帖</span>
+        </button>
+        <button id="resetBtn" class="secondary">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+            <path d="M3 3v5h5"></path>
+          </svg>
+          <span>重置设置</span>
+        </button>
+        <button id="mobileCloseBtn" type="button" class="secondary mobile-only-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+          <span>关闭面板</span>
+        </button>
+      </div>
+      <div class="theme-switch" role="group" aria-label="主题">
+        <button type="button" data-theme-set="light" title="浅色" aria-label="浅色">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="4"/>
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+          </svg>
+        </button>
+        <button type="button" data-theme-set="dark" title="深色" aria-label="深色">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 14.5A8.5 8.5 0 0 1 9.5 3 7 7 0 1 0 21 14.5z"/>
+          </svg>
+        </button>
+        <button type="button" data-theme-set="auto" title="跟随系统" aria-label="跟随系统" class="active">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="4" width="18" height="13" rx="2"/>
+            <path d="M8 21h8M12 17v4"/>
+          </svg>
+        </button>
+      </div>
+      <div class="sidebar-subfooter">
+        <button type="button" id="disclaimerBtn" class="subfooter-disclaimer-btn" title="查看版权与使用免责声明">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <span>版权与使用免责声明</span>
+        </button>
+      </div>
+    </section>
+  </aside>
+
+  <main id="preview">
+    <div id="preview-stage">
+      <div id="pages"></div>
+    </div>
+  </main>
+
+  <!-- 版权与免责声明 极简极奢弹窗 (Vercel/Apple Style) -->
+  <div id="disclaimerModal" class="disclaimer-modal" hidden aria-hidden="true" role="dialog" aria-labelledby="disclaimerTitle">
+    <div class="disclaimer-backdrop" id="disclaimerBackdrop"></div>
+    <div class="disclaimer-dialog">
+      <button type="button" id="disclaimerCloseBtn" class="disclaimer-close-btn" aria-label="关闭">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+
+      <div class="disclaimer-modal-header">
+        <div class="disclaimer-shield-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <h3 id="disclaimerTitle">版权与使用免责声明</h3>
+      </div>
+
+      <div class="disclaimer-modal-body">
+        <div class="disclaimer-section blue">
+          <div class="disclaimer-sec-title">
+            <span class="sec-dot"></span>
+            <h4>技术服务说明</h4>
+          </div>
+          <p>本应用为字帖排版与练习工具，未打包或分发任何商业字体文件。字体渲染主要依赖用户设备本地字体或公有开源 CDN。</p>
+        </div>
+
+        <div class="disclaimer-section green">
+          <div class="disclaimer-sec-title">
+            <span class="sec-dot"></span>
+            <h4>开源字体许可</h4>
+          </div>
+          <p>应用默认推荐的<strong>「霞鹜文楷」</strong>及<strong>「思源宋体 / 思源黑体」</strong>遵循 SIL OFL / Apache 开源协议，允许免费用于个人及商业用途。</p>
+        </div>
+
+        <div class="disclaimer-section amber">
+          <div class="disclaimer-sec-title">
+            <span class="sec-dot"></span>
+            <h4>商业字体合规提醒</h4>
+          </div>
+          <p>若用户自行选用系统本地商业字体（如微软雅黑、华文行楷、方正姚体等），生成的字帖仅限个人非商业学习。若需用于商业销售、出版或培训，请务必提前取得版权方商业授权。</p>
+        </div>
+      </div>
+
+      <div class="disclaimer-modal-footer">
+        <button type="button" id="disclaimerConfirmBtn" class="disclaimer-modal-btn">我知道了</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="vendor/pinyin-pro/index.js"></script>
+  <script src="app.js?v=57"></script>
+</body>
+</html>

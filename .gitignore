@@ -1,0 +1,6 @@
+.claude
+.codepilot-uploads
+server.log
+server.pid
+node_modules
+.vercel
