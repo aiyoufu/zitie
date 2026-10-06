@@ -138,6 +138,18 @@
       <button type="button" class="swipe-guide-close" id="closeSwipeGuideBtn" aria-label="关闭提示">✕</button>
     </div>
 
+    <!-- 上次规格复用提示：打开时保持默认规格，可一键复用上次保存的字帖规格 -->
+    <div id="lastSpecBanner" class="last-spec-banner" hidden>
+      <div class="last-spec-info">
+        <span class="last-spec-title">可复用上次的字帖规格</span>
+        <span class="last-spec-desc" id="lastSpecDesc"></span>
+      </div>
+      <div class="last-spec-actions">
+        <button type="button" id="applyLastSpecBtn" class="last-spec-apply-btn">一键复用</button>
+        <button type="button" id="dismissLastSpecBtn" class="last-spec-dismiss-btn" aria-label="忽略本次提示">✕</button>
+      </div>
+    </div>
+
     <nav class="tabs" role="tablist">
       <button class="tab active" data-tab="content" role="tab">内容</button>
       <button class="tab" data-tab="grid" role="tab">格子</button>

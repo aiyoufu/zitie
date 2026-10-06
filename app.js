@@ -1032,78 +1032,106 @@ function padGroupsToOwnRows(groups, perRow, emptyCell) {
   return out;
 }
 
-/* ============ Grid SVG ============ */
+/* ============ Page grid overlay ============ */
 /**
- * 辅助线 SVG。viewBox 为 0..100，线宽必须按格子物理尺寸换算：
- * 旧实现把 0.6 直接当用户单位 ≈ 0.08mm，屏幕靠抗锯齿能看见，打印会整根「消失」。
+ * 整页格子线 overlay（单一 SVG，mm 用户坐标）：
+ * 旧实现按格画 SVG 边框/辅助线，每格视口边缘会裁掉部分抗锯齿墨量、
+ * 且相位随格子位置漂移，出现「有的粗有的细」甚至隐身的线。
+ * 单一坐标系统一绘制后：所有横线/竖线/对角线物理宽度严格一致（mm 精确值，
+ * 无需按方向换算），相邻格共享一条边界线，打印输出矢量。
+ * 线宽下限 0.28mm，避免打印机丢线。
  */
-function gridSvg(type, lineStyle, lineWidth, lineColor, cellW, cellH) {
-  const refMm = Math.max(8, Math.min(cellW || 14, cellH || 14));
-  // 目标物理线宽 ≥ 0.28mm，再映射到 viewBox 用户单位
-  const strokeMm = Math.max(0.28, (lineWidth || 0.6) * 0.4);
-  const lw = (strokeMm / refMm) * 100;
-  const dash =
-    lineStyle === 'dashed' ? `${(lw * 4).toFixed(2)} ${(lw * 3).toFixed(2)}` :
-    lineStyle === 'dotted' ? `${Math.max(0.4, lw * 0.45).toFixed(2)} ${(lw * 2.4).toFixed(2)}` :
-    '';
-  const dashAttr = dash ? `stroke-dasharray="${dash}"` : '';
-  const sw = lw.toFixed(3);
-  // stroke 用 currentColor，颜色走 CSS（含打印加深）
-  const line = (x1, y1, x2, y2) =>
-    `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="currentColor" stroke-width="${sw}" ${dashAttr} stroke-linecap="butt"/>`;
+function pageGridSvg(cfg, cellW, cellH, perRow, rows) {
+  const W = cellW * perRow;
+  const H = cellH * rows;
+  const strokeMm = Math.max(0.28, (cfg.lineWidth || 0.6) * 0.4);
+  const bwMm = Math.max(0.28, (cfg.lineWidth || 0.6) * 0.8 * 0.3528);
+  const borderC = cfg.borderColor || '#888888';
+  const guideC = cfg.lineColor || '#e0e0e0';
+  const f3 = (n) => +n.toFixed(3);
+  const borderLine = (x1, y1, x2, y2) =>
+    `<line class="gl-b" x1="${f3(x1)}" y1="${f3(y1)}" x2="${f3(x2)}" y2="${f3(y2)}" stroke="${borderC}" stroke-width="${bwMm}"/>`;
+  const guideDash = () => {
+    if (cfg.lineStyle === 'dashed') {
+      return `stroke-dasharray="${f3(4 * strokeMm)} ${f3(3 * strokeMm)}"`;
+    }
+    if (cfg.lineStyle === 'dotted') {
+      return `stroke-dasharray="${f3(Math.max(0.45 * strokeMm, 0.12))} ${f3(2.4 * strokeMm)}"`;
+    }
+    return '';
+  };
+  const gd = guideDash();
+  const guideLine = (x1, y1, x2, y2) =>
+    `<line class="gl-g" x1="${f3(x1)}" y1="${f3(y1)}" x2="${f3(x2)}" y2="${f3(y2)}" stroke="${guideC}" stroke-width="${strokeMm}" ${gd}/>`;
 
-  let inner = '';
-  switch (type) {
-    case 'tian':
-    case 'pinyin':
-      inner = line(50, 0, 50, 100) + line(0, 50, 100, 50);
-      break;
-    case 'mi':
-      inner =
-        line(50, 0, 50, 100) + line(0, 50, 100, 50) +
-        line(0, 0, 100, 100) + line(100, 0, 0, 100);
-      break;
-    case 'jiu':
-      inner =
-        line(33.333, 0, 33.333, 100) + line(66.666, 0, 66.666, 100) +
-        line(0, 33.333, 100, 33.333) + line(0, 66.666, 100, 66.666);
-      break;
-    case 'hui':
-      inner = `<rect x="25" y="25" width="50" height="50" fill="none" stroke="currentColor" stroke-width="${sw}" ${dashAttr}/>`;
-      break;
-    case 'fourline':
-      inner = line(0, 33.333, 100, 33.333) + line(0, 66.666, 100, 66.666);
-      break;
-    case 'blank':
-    default:
-      inner = '';
+  const parts = [];
+  // 竖边框：perRow+1 条贯穿整页；横边框：rows+1 条。相邻格共享边界，不叠线。
+  for (let c = 0; c <= perRow; c++) {
+    parts.push(borderLine(c * cellW, 0, c * cellW, H));
+  }
+  for (let r = 0; r <= rows; r++) {
+    parts.push(borderLine(0, r * cellH, W, r * cellH));
+  }
+
+  const type = cfg.gridType;
+  if (type !== 'blank') {
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < perRow; c++) {
+        const L = c * cellW, R = L + cellW, T = r * cellH, B = T + cellH;
+        const cx = L + cellW / 2, cy = T + cellH / 2;
+        switch (type) {
+          case 'tian':
+            parts.push(guideLine(cx, T, cx, B), guideLine(L, cy, R, cy));
+            break;
+          case 'mi':
+            parts.push(
+              guideLine(cx, T, cx, B), guideLine(L, cy, R, cy),
+              guideLine(L, T, R, B), guideLine(R, T, L, B)
+            );
+            break;
+          case 'jiu': {
+            const x1 = L + cellW / 3, x2 = L + cellW * 2 / 3;
+            const y1 = T + cellH / 3, y2 = T + cellH * 2 / 3;
+            parts.push(
+              guideLine(x1, T, x1, B), guideLine(x2, T, x2, B),
+              guideLine(L, y1, R, y1), guideLine(L, y2, R, y2)
+            );
+            break;
+          }
+          case 'hui': {
+            const x1 = L + cellW / 4, x2 = R - cellW / 4;
+            const y1 = T + cellH / 4, y2 = B - cellH / 4;
+            parts.push(
+              guideLine(x1, y1, x2, y1), guideLine(x2, y1, x2, y2),
+              guideLine(x2, y2, x1, y2), guideLine(x1, y2, x1, y1)
+            );
+            break;
+          }
+          case 'fourline':
+            parts.push(
+              guideLine(L, T + cellH / 3, R, T + cellH / 3),
+              guideLine(L, T + cellH * 2 / 3, R, T + cellH * 2 / 3)
+            );
+            break;
+          case 'pinyin': {
+            // 上 34% 四线区 + 下 66% 田字区；分隔线与边框同宽同色
+            const split = T + cellH * 0.34;
+            parts.push(borderLine(L, split, R, split));
+            parts.push(
+              guideLine(L, T + cellH * 0.34 / 3, R, T + cellH * 0.34 / 3),
+              guideLine(L, T + cellH * 0.34 * 2 / 3, R, T + cellH * 0.34 * 2 / 3),
+              guideLine(cx, split, cx, B),
+              guideLine(L, T + cellH * 0.67, R, T + cellH * 0.67)
+            );
+            break;
+          }
+        }
+      }
+    }
   }
   return (
-    `<svg class="grid-lines" viewBox="0 0 100 100" preserveAspectRatio="none" ` +
-    `shape-rendering="geometricPrecision" aria-hidden="true">` +
-    `${inner}</svg>`
-  );
-}
-
-/**
- * 格子边框 SVG：CSS border 在预览缩放/打印时会按设备像素取整，
- * 相邻格子边框随机变粗变细；SVG 描边统一抗锯齿，粗细一致。
- * 线向内缩半个线宽，完整落在本格内，避免与相邻格叠线。
- */
-function cellFrameSvg(borderMm, cellW, cellH, edges) {
-  const v = (borderMm / Math.max(cellW || 1, 0.01)) * 100; // 竖线宽（viewBox 单位）
-  const h = (borderMm / Math.max(cellH || 1, 0.01)) * 100; // 横线宽
-  const line = (x1, y1, x2, y2, w) =>
-    `<line x1="${x1.toFixed(3)}" y1="${y1.toFixed(3)}" x2="${x2.toFixed(3)}" y2="${y2.toFixed(3)}" ` +
-    `stroke="currentColor" stroke-width="${w.toFixed(3)}" stroke-linecap="butt"/>`;
-  let inner = '';
-  if (edges.top) inner += line(0, h / 2, 100, h / 2, h);
-  if (edges.right) inner += line(100 - v / 2, 0, 100 - v / 2, 100, v);
-  if (edges.bottom) inner += line(0, 100 - h / 2, 100, 100 - h / 2, h);
-  if (edges.left) inner += line(v / 2, 0, v / 2, 100, v);
-  return (
-    `<svg class="cell-frame" viewBox="0 0 100 100" preserveAspectRatio="none" ` +
-    `shape-rendering="geometricPrecision" aria-hidden="true">${inner}</svg>`
+    `<svg class="page-grid" viewBox="0 0 ${f3(W)} ${f3(H)}" width="${f3(W)}mm" height="${f3(H)}mm" ` +
+    `preserveAspectRatio="none" aria-hidden="true">${parts.join('')}</svg>`
   );
 }
 
@@ -1192,7 +1220,8 @@ function getCellDims(cfg, contentW) {
 
 /* ============ Cell ============ */
 /**
- * 格子边框用「右+下」单线，首行补上、首列补左，避免相邻格子双边框叠成粗细不一。
+ * 单个格子：只负责尺寸与内容（字模/笔顺/拼音）。
+ * 边框与辅助线由整页 overlay（pageGridSvg）统一绘制，保证粗细一致。
  */
 function createCell(cfg, data, cellW, cellH, pos = {}) {
   const { isFirstCol = false, isFirstRow = false } = pos;
@@ -1207,21 +1236,6 @@ function createCell(cfg, data, cellW, cellH, pos = {}) {
   cell.style.width = cellW + 'mm';
   cell.style.height = cellH + 'mm';
 
-  // 边框：改画 SVG 线（CSS border 会按设备像素取整导致粗细不一）；
-  // 下限约 0.25mm 避免打印机丢线。颜色走 CSS 变量，打印时可由 @media print 加深
-  const bwMm = Math.max(0.25, (cfg.lineWidth * 0.8) * 0.3528);
-  const bc = cfg.borderColor || '#888888';
-  // 田/米字辅助线默认更浅，突出笔顺墨迹
-  const gc = cfg.lineColor || '#e0e0e0';
-  cell.style.setProperty('--cell-border-c', bc);
-  cell.style.setProperty('--cell-grid-c', gc);
-  cell.insertAdjacentHTML(
-    'beforeend',
-    cellFrameSvg(bwMm, cellW, cellH, {
-      top: isFirstRow, right: true, bottom: true, left: isFirstCol
-    })
-  );
-
   const fontCss = cssFontFamily(cfg.fontFamily);
   // 四线三格不注音；其它格由 showPinyin 控制是否印读音
   const showPyText = !!(cfg.showPinyin && data.pinyin && !isFourline);
@@ -1230,15 +1244,6 @@ function createCell(cfg, data, cellW, cellH, pos = {}) {
   if (isPinyinGrid) {
     const pyZone = document.createElement('div');
     pyZone.className = 'pinyin-zone';
-    pyZone.insertAdjacentHTML(
-      'beforeend',
-      gridSvg('fourline', cfg.lineStyle, cfg.lineWidth, gc, cellW, cellH * 0.34)
-    );
-    // 拼音区与汉字区的分隔线（同为 SVG，避免 CSS border 取整不一致）
-    pyZone.insertAdjacentHTML(
-      'beforeend',
-      cellFrameSvg(bwMm, cellW, cellH * 0.34, { bottom: true })
-    );
     if (showPyText) {
       const py = document.createElement('div');
       py.className = 'pinyin';
@@ -1253,10 +1258,6 @@ function createCell(cfg, data, cellW, cellH, pos = {}) {
 
     const hzZone = document.createElement('div');
     hzZone.className = 'hanzi-zone';
-    hzZone.insertAdjacentHTML(
-      'beforeend',
-      gridSvg('tian', cfg.lineStyle, cfg.lineWidth, gc, cellW, cellH * 0.66)
-    );
     appendCharContent(hzZone, cfg, data, cellW, cellH * 0.66, fontCss, true);
     cell.appendChild(hzZone);
     return cell;
@@ -1264,10 +1265,6 @@ function createCell(cfg, data, cellW, cellH, pos = {}) {
 
   // —— 四线三格：纯拼音书写纸（空白四线；不叠注音）——
   if (isFourline) {
-    cell.insertAdjacentHTML(
-      'beforeend',
-      gridSvg('fourline', cfg.lineStyle, cfg.lineWidth, gc, cellW, cellH)
-    );
     // 四线格以练写拼音为主：不画汉字笔顺/字模，保持空白练习纸
     // 若输入的是拼音字母本身，可用描红/临摹等模式时再显示（仅非 stroke 的文本）
     if (data.char && cfg.charMode !== 'stroke' && cfg.charMode !== 'none') {
@@ -1276,14 +1273,7 @@ function createCell(cfg, data, cellW, cellH, pos = {}) {
     return cell;
   }
 
-  // —— 其它格子：整格辅助线 + 可选顶部叠字拼音 ——
-  if (cfg.gridType !== 'blank') {
-    cell.insertAdjacentHTML(
-      'beforeend',
-      gridSvg(cfg.gridType, cfg.lineStyle, cfg.lineWidth, gc, cellW, cellH)
-    );
-  }
-
+  // —— 其它格子：可选顶部叠字拼音（辅助线见整页 overlay）——
   if (showPyText) {
     const py = document.createElement('div');
     py.className = 'pinyin pinyin-overlay';
@@ -1781,6 +1771,12 @@ async function render() {
     const page = createPage(cfg, dims, p + 1, pageCount);
     const slice = expanded.slice(p * cellsPerPage, (p + 1) * cellsPerPage);
 
+    // 整页格子线 overlay：单一坐标系保证所有线粗细一致
+    page.querySelector('.page-content').insertAdjacentHTML(
+      'afterbegin',
+      pageGridSvg(cfg, cellW, cellH, perRow, rowsPerPage)
+    );
+
     for (let r = 0; r < rowsPerPage; r++) {
       const row = document.createElement('div');
       row.className = 'grid-row';
@@ -2011,6 +2007,206 @@ const DEFAULTS = {
   bgFit: 'cover',
   bgEdgeOnly: true
 };
+
+/* ============ Settings persistence（规格记忆 / 一键复用） ============ */
+/**
+ * 使用过程中的规格自动记录到 localStorage；下次打开仍从默认规格开始，
+ * 但在侧栏顶部提示「可复用上次的字帖规格」，点击「一键复用」才套用。
+ * 这样既不会悄悄改变当前页面，又能随时找回昨天打印过的规格。
+ * 拼音校对、主题、自定义背景另有各自的存储键，互不影响。
+ */
+const SETTINGS_KEY = 'zhitie-settings-v1';
+const SETTINGS_DISMISSED_KEY = 'zhitie-settings-dismissed-ts';
+const CONTROL_IDS = ['text','repeat','charMode','ownRow','showPinyin','pinyinStyle','fontFamily','gridType','lineStyle','lineWidth',
+  'lineColor','borderColor','paper','orientation','marginTop','marginBottom','marginLeft',
+  'marginRight','cellSize','perRow',
+  'showPageHeader','showPageFooter','headerLeft','headerCenter','headerRight',
+  'footerLeft','footerCenter','footerRight','pageNumberFmt','pageNumberPos',
+  'pageHeaderHeight','pageFooterHeight',
+  'sheetHeader','headerTitle','headerSubtitle','showMeta','headerHeight',
+  'bgType','bgOpacity','bgFit','bgEdgeOnly'];
+let saveSettingsTimer = null;
+
+function collectSettings() {
+  const data = {};
+  CONTROL_IDS.forEach(id => {
+    const el = $(id);
+    if (!el) return;
+    data[id] = el.type === 'checkbox' ? el.checked : el.value;
+  });
+  return data;
+}
+
+function saveSettings() {
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ v: 1, ts: Date.now(), values: collectSettings() }));
+  } catch (_) { /* quota / private mode */ }
+}
+
+function saveSettingsDebounced() {
+  clearTimeout(saveSettingsTimer);
+  saveSettingsTimer = setTimeout(saveSettings, 250);
+}
+
+/** 读取上次使用的规格；兼容早期「平铺一份 values」的存储格式 */
+function loadLastSpec() {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (Array.isArray(data) || !data || typeof data !== 'object') return null;
+    if (data.values && typeof data.values === 'object') {
+      return { ts: +data.ts || 0, values: data.values };
+    }
+    return { ts: 0, values: data };
+  } catch (_) {
+    return null;
+  }
+}
+
+/** 带校验地把规格套用到控件：下拉只接受存在的选项，数字框只接受合法数字 */
+function applySettings(values) {
+  if (!values || typeof values !== 'object') return;
+  CONTROL_IDS.forEach(id => {
+    const el = $(id);
+    if (!el || !(id in values)) return;
+    const v = values[id];
+    if (el.type === 'checkbox') {
+      el.checked = !!v;
+      return;
+    }
+    if (typeof v !== 'string') return;
+    if (el.tagName === 'SELECT') {
+      if (Array.from(el.options).some(o => o.value === v)) el.value = v;
+    } else if (el.type === 'number' || el.type === 'range') {
+      if (v !== '' && Number.isFinite(+v)) el.value = v;
+    } else {
+      el.value = v;
+    }
+  });
+}
+
+/** 复用后手动补发事件：同步自定义下拉文案、折叠面板并触发重绘/再记录 */
+function announceControlsChanged() {
+  CONTROL_IDS.forEach(id => {
+    const el = $(id);
+    if (!el) return;
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+}
+
+/** 首次使用（无记忆）时套用默认规格，避免打开是一张全空格子纸 */
+function applyDefaultsToControls() {
+  for (const k in DEFAULTS) {
+    const el = $(k);
+    if (!el) continue;
+    if (el.type === 'checkbox') el.checked = !!DEFAULTS[k];
+    else el.value = String(DEFAULTS[k]);
+  }
+}
+
+/** 折叠面板展开态 / 开关文案与控件值保持一致 */
+function syncDisclosurePanels() {
+  const pairs = [
+    ['showPageHeader', '.page-header-options'],
+    ['showPageFooter', '.page-footer-options'],
+    ['sheetHeader', '.header-options']
+  ];
+  pairs.forEach(([id, sel]) => {
+    const panel = document.querySelector(sel);
+    const el = $(id);
+    if (panel && el) panel.classList.toggle('active', el.checked);
+  });
+  if ($('ownRowLabel') && $('ownRow')) {
+    $('ownRowLabel').textContent = $('ownRow').checked ? '开启' : '关闭';
+  }
+}
+
+/** 规格摘要：格型 · 字号 · 纸张方向，供提示条展示 */
+function describeSpec(values) {
+  const labelOf = (id, v) => {
+    const el = $(id);
+    if (!el || el.tagName !== 'SELECT') return '';
+    const opt = Array.from(el.options).find(o => o.value === v);
+    return opt ? opt.textContent.trim() : '';
+  };
+  const parts = [];
+  const grid = labelOf('gridType', values.gridType);
+  if (grid) parts.push(grid);
+  if (values.cellSize) parts.push(`${values.cellSize}mm`);
+  const paper = labelOf('paper', values.paper);
+  if (paper) {
+    const orient = values.orientation === 'landscape' ? '横向' : '纵向';
+    parts.push(`${paper.split('（')[0].trim()} ${orient}`);
+  }
+  if (values.fontFamily) {
+    const font = labelOf('fontFamily', values.fontFamily);
+    if (font) parts.push(font.split('（')[0].trim());
+  }
+  return parts.join(' · ');
+}
+
+function formatSpecTime(ts) {
+  if (!ts) return '上次保存';
+  const d = new Date(ts);
+  const hm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const days = Math.round((todayStart - dayStart) / 86400000);
+  if (days <= 0) return `今天 ${hm}`;
+  if (days === 1) return `昨天 ${hm}`;
+  if (days < 7) return `${days} 天前`;
+  return `${d.getMonth() + 1}月${d.getDate()}日 ${hm}`;
+}
+
+function settingsDiffer(saved) {
+  const cur = collectSettings();
+  return CONTROL_IDS.some(id => {
+    if (!(id in saved)) return false;
+    const a = cur[id], b = saved[id];
+    if (typeof a === 'boolean' || typeof b === 'boolean') return !!a !== !!b;
+    return String(a ?? '') !== String(b ?? '');
+  });
+}
+
+function hideLastSpecBanner() {
+  const banner = $('lastSpecBanner');
+  if (banner) banner.hidden = true;
+}
+
+/** 打开时若存在与默认不同的历史规格，则在侧栏顶部提示一键复用 */
+function initLastSpecUi(spec) {
+  const banner = $('lastSpecBanner');
+  if (!banner || !spec) return;
+  let dismissedTs = 0;
+  try { dismissedTs = +localStorage.getItem(SETTINGS_DISMISSED_KEY) || 0; } catch (_) {}
+  if (dismissedTs && dismissedTs === spec.ts) return;
+  if (!settingsDiffer(spec.values)) return;
+
+  const desc = $('lastSpecDesc');
+  if (desc) desc.textContent = `${formatSpecTime(spec.ts)} · ${describeSpec(spec.values)}`;
+  banner.hidden = false;
+
+  const applyBtn = $('applyLastSpecBtn');
+  const dismissBtn = $('dismissLastSpecBtn');
+  if (applyBtn) {
+    applyBtn.onclick = () => {
+      applySettings(spec.values);
+      announceControlsChanged();
+      hideLastSpecBanner();
+    };
+  }
+  if (dismissBtn) {
+    dismissBtn.onclick = () => {
+      // 本次记录不再提示；下次使用（新 ts）后仍会提示
+      try { localStorage.setItem(SETTINGS_DISMISSED_KEY, String(spec.ts)); } catch (_) {}
+      hideLastSpecBanner();
+    };
+  }
+}
+
 function reset() {
   for (const k in DEFAULTS) {
     const el = $(k);
@@ -2019,14 +2215,17 @@ function reset() {
       else el.value = DEFAULTS[k];
     }
   }
-  document.querySelector('.page-header-options').classList.toggle('active', $('showPageHeader').checked);
-  document.querySelector('.page-footer-options').classList.toggle('active', $('showPageFooter').checked);
-  document.querySelector('.header-options').classList.toggle('active', $('sheetHeader').checked);
-  if ($('ownRowLabel') && $('ownRow')) $('ownRowLabel').textContent = $('ownRow').checked ? '开启' : '关闭';
+  syncDisclosurePanels();
   updateStrokeModeUi();
   updatePinyinOptionsUi();
   updateBgOptionsUi();
-  // 重置不清除拼音校对 / 自定义背景缓存，避免误伤
+  // 重置 = 回到默认规格：清除历史记录与提示，不再提供复用；
+  // 拼音校对 / 自定义背景缓存不受影响
+  try {
+    localStorage.removeItem(SETTINGS_KEY);
+    localStorage.removeItem(SETTINGS_DISMISSED_KEY);
+  } catch (_) { /* ignore */ }
+  hideLastSpecBanner();
   render();
 }
 
@@ -2324,27 +2523,25 @@ function init() {
   initTabs();
   clearLegacyStrokeFailCache();
   loadPinyinOverrides();
+  // 每次打开都从默认规格开始；历史规格只在侧栏顶部提示，一键复用才套用
+  applyDefaultsToControls();
   updateStrokeModeUi();
   updatePinyinOptionsUi();
+  syncDisclosurePanels();
   initPinyinReviewUi();
   initBgControls();
   initHelpTips();
   initCustomSelects();
   initDrawer();
+  initLastSpecUi(loadLastSpec());
 
-  const ids = ['text','repeat','charMode','ownRow','showPinyin','pinyinStyle','fontFamily','gridType','lineStyle','lineWidth',
-    'lineColor','borderColor','paper','orientation','marginTop','marginBottom','marginLeft',
-    'marginRight','cellSize','perRow',
-    'showPageHeader','showPageFooter','headerLeft','headerCenter','headerRight',
-    'footerLeft','footerCenter','footerRight','pageNumberFmt','pageNumberPos',
-    'pageHeaderHeight','pageFooterHeight',
-    'sheetHeader','headerTitle','headerSubtitle','showMeta','headerHeight',
-    'bgType','bgOpacity','bgFit','bgEdgeOnly'];
-  ids.forEach(id => {
+  CONTROL_IDS.forEach(id => {
     const el = $(id);
     if (el) {
       el.addEventListener('input', debouncedRender);
       el.addEventListener('change', debouncedRender);
+      el.addEventListener('input', saveSettingsDebounced);
+      el.addEventListener('change', saveSettingsDebounced);
     }
   });
 
@@ -2356,25 +2553,13 @@ function init() {
     $('gridType').addEventListener('change', updatePinyinOptionsUi);
   }
 
-  $('showPageHeader').addEventListener('change', () => {
-    document.querySelector('.page-header-options').classList.toggle('active', $('showPageHeader').checked);
-  });
-  $('showPageFooter').addEventListener('change', () => {
-    document.querySelector('.page-footer-options').classList.toggle('active', $('showPageFooter').checked);
-  });
-  $('sheetHeader').addEventListener('change', () => {
-    document.querySelector('.header-options').classList.toggle('active', $('sheetHeader').checked);
-  });
+  $('showPageHeader').addEventListener('change', syncDisclosurePanels);
+  $('showPageFooter').addEventListener('change', syncDisclosurePanels);
+  $('sheetHeader').addEventListener('change', syncDisclosurePanels);
 
-  const updateOwnRowText = () => {
-    const labelSpan = $('ownRowLabel');
-    if (labelSpan && $('ownRow')) {
-      labelSpan.textContent = $('ownRow').checked ? '开启' : '关闭';
-    }
-  };
   if ($('ownRow')) {
-    $('ownRow').addEventListener('change', updateOwnRowText);
-    updateOwnRowText();
+    $('ownRow').addEventListener('change', syncDisclosurePanels);
+    syncDisclosurePanels();
   }
 
   $('renderBtn').addEventListener('click', () => { render(); });

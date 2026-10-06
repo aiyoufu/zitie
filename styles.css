@@ -1380,37 +1380,100 @@ body {
 .cell .char-stroke.is-solid path {
   fill: rgba(20, 18, 15, 0.94);
 }
-.cell .grid-lines {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 1;
-  pointer-events: none;
-  /* 辅助线颜色：JS 写入 --cell-grid-c；默认偏浅，突出笔迹 */
-  color: var(--cell-grid-c, #e0e0e0);
-  overflow: visible;
+/* 格子边框/辅助线：整页 overlay（.page-grid）统一绘制，见 pageGridSvg() */
+
+/* ===== 上次规格复用提示条 ===== */
+@keyframes lastSpecBannerIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
 }
-.cell .grid-lines line,
-.cell .grid-lines rect {
-  stroke: currentColor;
-  fill: none;
+.last-spec-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 22px 10px;
+  padding: 10px 10px 10px 12px;
+  background: var(--seg-track);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  animation: lastSpecBannerIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
-/* 格子边框：SVG 描边，粗细不受设备像素取整影响（替代 CSS border） */
-.cell .cell-frame {
+.last-spec-banner[hidden] {
+  display: none !important;
+}
+.last-spec-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.last-spec-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.35;
+}
+.last-spec-desc {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.last-spec-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.last-spec-apply-btn {
+  border: none;
+  cursor: pointer;
+  border-radius: 8px;
+  padding: 7px 12px;
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+.last-spec-apply-btn:hover {
+  background: var(--btn-primary-hover);
+}
+.last-spec-dismiss-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  padding: 5px 7px;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+.last-spec-dismiss-btn:hover {
+  background: var(--btn-secondary-hover-bg);
+}
+
+/* 整页格子线 overlay：z-index 介于格子白底（背景模式）与字迹之间 */
+.page-grid {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+  top: 0;
+  left: 0;
   z-index: 1;
+  display: block;
   pointer-events: none;
-  color: var(--cell-border-c, #888);
   print-color-adjust: exact;
   -webkit-print-color-adjust: exact;
 }
-.cell .cell-frame line {
-  stroke: currentColor;
+.page-grid line {
   fill: none;
+  stroke-linecap: butt;
 }
 
 /* —— 拼音田字格：上四线 + 下田字 —— */
@@ -1430,12 +1493,6 @@ body {
   box-sizing: border-box;
   overflow: hidden;
 }
-.cell.pinyin-cell .pinyin-zone .cell-frame {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
 .cell.pinyin-cell .hanzi-zone {
   position: relative;
   flex: 1 1 auto;
@@ -1444,13 +1501,6 @@ body {
   align-items: center;
   justify-content: center;
   overflow: hidden;
-}
-.cell.pinyin-cell .pinyin-zone .grid-lines,
-.cell.pinyin-cell .hanzi-zone .grid-lines {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
 }
 .cell.pinyin-cell .pinyin {
   position: relative;
@@ -2098,47 +2148,34 @@ body.is-printing #preview-stage {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
-  /* 格子：保留 overflow hidden 以正确裁切辅助线；强制边框/线色打印 */
+  /* 格子：保留 overflow hidden 以正确裁切字迹；线色由 .page-grid 打印规则强制 */
   .cell {
     overflow: hidden !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
-    /* 边框清晰、辅助线偏浅，突出笔顺墨迹 */
-    --cell-border-c: #666666 !important;
-    --cell-grid-c: #c8c8c8 !important;
   }
-  .cell .cell-frame {
+  .page-grid {
     display: block !important;
     visibility: visible !important;
     opacity: 1 !important;
-    color: #666666 !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
-  .cell .cell-frame line {
+  /* 打印加深：边框清晰、辅助线偏浅，突出笔顺墨迹（覆盖用户自选颜色） */
+  .page-grid line.gl-b {
     stroke: #666666 !important;
+    stroke-opacity: 1 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .page-grid line.gl-g {
+    stroke: #c8c8c8 !important;
     stroke-opacity: 1 !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
   .cell .char {
     color: #1c1b17 !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-  .cell .grid-lines {
-    display: block !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    color: #c8c8c8 !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-  .cell .grid-lines line,
-  .cell .grid-lines rect {
-    stroke: #c8c8c8 !important;
-    stroke-opacity: 1 !important;
-    fill: none !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
